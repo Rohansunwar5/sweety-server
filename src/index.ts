@@ -5,16 +5,30 @@ import app from './app';
 import logger from './utils/logger';
 import connectDB from './db';
 import redisClient from './services/cache';
-import { testTOTPImplementation } from './services/crypto.service';
+
+import whatsAppService from './services/whatsapp.service';
+
+async function testWhatsApp() {
+  try {
+    const result = await whatsAppService.sendWhatsappText(
+      '+919503878192', // Your verified WhatsApp number (without country code prefix)
+      'Test WhatsApp message from your service'
+    );
+    console.log('WhatsApp sent:', result);
+  } catch (error) {
+    console.error('Error sending WhatsApp:', error);
+  }
+}
 
 
-testTOTPImplementation();
+
 
 (async () => {
   logger.info('Connecting to Database...');
   await connectDB();
   logger.info('DB connected');
   await redisClient.connect();
+  // testWhatsApp();
 
   const numCPUs = process.env.NODE_ENV === 'production' ? os.cpus().length : 1;
   if (cluster.isMaster) {

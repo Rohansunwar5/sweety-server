@@ -1,6 +1,12 @@
 import mongoose from 'mongoose';
 
 const PASSWORD_MIN_LENGTH = 8;
+const PHONE_MIN_LENGTH = 9;
+
+export enum IAuthProvider {
+  EMAIL = 'email',
+  GOGGLE = 'google'
+}
 
 const userSchema = new mongoose.Schema(
   {
@@ -20,32 +26,96 @@ const userSchema = new mongoose.Schema(
       required: true,
       minLength: 2,
     },
+    phone: {
+      type: String,
+      required: true,
+      minLength: PHONE_MIN_LENGTH,
+      trim: true,
+    },
+    img: {
+      type: String,
+    },
+    addresses: [{
+      name: String,
+      addressLine1: String,
+      addressLine2: String,
+      city: String,
+      state: String,
+      pinCode: String,
+      country: String,
+      isDefault: {
+        type: Boolean,
+        default: false,
+      }
+    }],
+    wishlist: [{
+      type: mongoose.Types.ObjectId,
+    }],
+    // cart: [{
+    //   product: {
+    //     type: mongoose.Types.ObjectId,
+    //     required: true,
+    //   },
+    //   quantity: {
+    //     type: Number, 
+    //     required: true,
+    //     min: 1,
+    //     default: 1,
+    //   },
+    //   size: {
+    //     type: String,
+    //   },
+    //   addedAt: {
+    //     type: Date,
+    //     default: Date.now
+    //   }
+    // }],
     password: {
       type: String,
       minLength: PASSWORD_MIN_LENGTH,
     },
-    twoFactorEnabled: {
+    authProvider: {
+      type: String,
+      enum: IAuthProvider,
+      default: IAuthProvider.EMAIL
+    },
+    isGuest: {
       type: Boolean,
       default: false,
     },
-    twoFactorSecret: {
-      type: String,
-      default: null
+    verified: {
+      type: Boolean,
+      default: false
     }
-  },
-  { timestamps: true }
+  }, { timestamps: true }
 );
 
 userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
 export interface IUser extends mongoose.Schema {
   _id: string;
   firstName: string;
   lastName: string;
   email: string;
-  password: string;
-  twoFactorEnabled: boolean;
-  twoFactorSecret: string;
+  phone: string;
+  authProvider: string;
+  img?: string;
+  verified: boolean;
+  password?: string;
+  addresses?: Array<{
+    name: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    pinCode: string;
+    country: string;
+    isDefault: boolean;
+  }>;
+  wishlist?: mongoose.Types.ObjectId[];
+  isGuest?: boolean;
+
 }
 
 export default mongoose.model<IUser>('User', userSchema);

@@ -2,11 +2,23 @@ import { Router } from 'express';
 import { health, helloWorld } from '../controllers/health.controller';
 import { asyncHandler } from '../utils/asynchandler';
 import authRouter from './auth.route';
+import productRouter from './product.route';
+import orderRouter from './order.route';
+import cartRouter from './cart.route';
+import discountRouter from './discount.route';
+import paymentRouter from './payment.route';
+import categoryRouter from './category.route';
 
 const v1Router = Router();
 
 v1Router.get('/', asyncHandler(helloWorld));
 v1Router.get('/health', asyncHandler(health));
 v1Router.use('/auth', authRouter);
+v1Router.use('/product', productRouter);
+v1Router.use('/cart', cartRouter);
+v1Router.use('/order', orderRouter);
+v1Router.use('/category', categoryRouter);
+v1Router.use('/payments', paymentRouter);
+v1Router.use('/discount', discountRouter);
 
 export default v1Router;

@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@types/nodemailer": "^6.4.17",
     "axios": "^1.7.9",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
@@ -25,7 +26,7 @@
     "express": "^4.21.2",
     "express-mongo-sanitize": "^2.2.0",
     "express-validator": "^7.0.1",
-    "google-auth-library": "^9.8.0",
+    "google-auth-library": "^9.15.1",
     "helmet": "^7.1.0",
     "ip": "^2.0.1",
     "jsonwebtoken": "^9.0.2",
@@ -33,9 +34,11 @@
     "mongoose": "^8.3.1",
     "multer": "^1.4.5-lts.1",
     "nanoid": "^3.3.4",
+    "nodemailer": "^7.0.3",
     "qr-image": "^3.2.0",
     "razorpay": "^2.9.5",
     "redis": "^4.6.13",
+    "twilio": "^5.7.0",
     "winston": "^3.13.0",
     "winston-aws-cloudwatch": "^3.0.0",
     "xss-clean": "^0.1.4"

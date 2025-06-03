@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Caroal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        .welcome-message {
+            font-size: 24px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        .welcome-icon {
+            font-size: 48px;
+            margin: 15px 0;
+        }
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            margin: 0;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .main-text {
+            font-size: 16px;
+            margin-bottom: 25px;
+            line-height: 1.7;
+        }
+        .account-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+            border-left: 4px solid #667eea;
+            position: relative;
+        }
+        .account-info::before {
+            content: "✓";
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .account-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .account-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .account-detail {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            color: #555;
+        }
+        .account-detail strong {
+            min-width: 60px;
+            color: #333;
+        }
+        .next-steps {
+            margin: 30px 0;
+        }
+        .steps-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .step-item {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+            transition: transform 0.2s ease;
+        }
+        .step-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .step-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        .step-text {
+            font-size: 15px;
+            color: #555;
+            margin: 0;
+        }
+        .cta-section {
+            text-align: center;
+            margin: 40px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .support-section {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .support-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .support-text {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+        .team-signature {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+        .social-links a:hover {
+            color: #764ba2;
+        }
+        .brand-footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 12px;
+            color: #999;
+        }
+        @media (max-width: 600px) {
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+            .content {
+                padding: 25px 20px;
+            }
+            .account-details {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">CAROAL</div>
+            <div class="welcome-icon">🎉</div>
+            <div class="welcome-message">Welcome, <%= firstName %>!</div>
+            <p class="tagline">You're now part of the Caroal family</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Greeting -->
+            <div class="greeting">
+                Hi <%= firstName %> <%= lastName %>,
+            </div>
+            
+            <p class="main-text">
+                Thank you for joining <strong>Caroal</strong>! We're thrilled to have you as part of our growing community. 
+                Your journey with us starts now, and we can't wait to see what amazing things you'll accomplish.
+            </p>
+
+            <!-- Account Information -->
+            <div class="account-info">
+                <div class="account-title">Your Account is Ready!</div>
+                <div class="account-details">
+                    <div class="account-detail">
+                        <strong>Email:</strong> <%= email %>
+                    </div>
+                    <div class="account-detail">
+                        <strong>Phone:</strong> <%= phone %>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="next-steps">
+                <h2 class="steps-title">What's Next?</h2>
+                <div class="steps-grid">
+                    <div class="step-item">
+                        <div class="step-icon">👤</div>
+                        <p class="step-text">Complete your profile setup to personalize your experience</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-icon">🚀</div>
+                        <p class="step-text">Explore our features and discover what Caroal has to offer</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-icon">🤝</div>
+                        <p class="step-text">Connect with other users and build your network</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-icon">✨</div>
+                        <p class="step-text">Start using our platform and unlock your potential</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Call to Action -->
+            <div class="cta-section">
+                <h3 style="margin-top: 0; color: #333;">Ready to Get Started?</h3>
+                <p style="color: #666; margin-bottom: 25px;">Click below to dive into your new Caroal experience</p>
+                <a href="#" class="button">Get Started Now</a>
+            </div>
+
+            <!-- Support Section -->
+            <div class="support-section">
+                <div class="support-title">Need Help?</div>
+                <p class="support-text">
+                    Our support team is here to help you every step of the way. Don't hesitate to reach out 
+                    if you have any questions or need assistance getting started.
+                </p>
+            </div>
+
+            <p style="font-size: 16px; margin-bottom: 10px;">Welcome aboard!</p>
+            <div class="team-signature">The Caroal Team</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <div class="social-links">
+                <a href="#">Facebook</a>
+                <a href="#">Twitter</a>
+                <a href="#">LinkedIn</a>
+                <a href="#">Instagram</a>
+            </div>
+            
+            <div class="brand-footer">
+                <p>&copy; 2025 Caroal. All rights reserved.</p>
+                <p>This email was sent to <%= email %>. If you didn't sign up for this account, please ignore this email.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

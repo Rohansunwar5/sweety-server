@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - Caroal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+        .success-message {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .checkmark {
+            font-size: 48px;
+            margin: 15px 0;
+        }
+        .content {
+            padding: 30px;
+        }
+        .order-info {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+        .order-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        .order-date {
+            color: #666;
+            font-size: 16px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .items-section {
+            margin: 30px 0;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .item:last-child {
+            border-bottom: none;
+        }
+        .item-details {
+            flex: 1;
+        }
+        .item-name {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .item-meta {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        .item-price {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 16px;
+        }
+        .pricing-summary {
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+        .pricing-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        .pricing-row.discount {
+            color: #28a745;
+        }
+        .pricing-total {
+            border-top: 2px solid #dee2e6;
+            padding-top: 15px;
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 20px;
+            color: #333;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+        }
+        .footer h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        .contact-info {
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .brand-footer {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #dee2e6;
+            font-size: 12px;
+            color: #999;
+        }
+        @media (max-width: 600px) {
+            .item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .item-price {
+                margin-top: 10px;
+                align-self: flex-end;
+            }
+            .pricing-row {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">CAROAL</div>
+            <div class="checkmark">✓</div>
+            <div class="success-message">Order Confirmed!</div>
+            <p style="margin: 0; opacity: 0.9;">Thank you for choosing Caroal</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Greeting -->
+            <div class="greeting">
+                Hi <%= firstName %> <%= lastName %>,
+            </div>
+            <p>Thank you for your order! We're excited to get your items ready and delivered to you.</p>
+
+            <!-- Order Information -->
+            <div class="order-info">
+                <div class="order-number">Order #<%= orderNumber %></div>
+                <div class="order-date">Placed on <%= orderDate %></div>
+            </div>
+
+            <!-- Order Items -->
+            <div class="items-section">
+                <h2 class="section-title">Your Order</h2>
+                <% items.forEach(function(item) { %>
+                <div class="item">
+                    <div class="item-details">
+                        <div class="item-name"><%= item.productName %></div>
+                        <div class="item-meta">Product Code: <%= item.productCode %></div>
+                        <div class="item-meta">Size: <%= item.size %> | Quantity: <%= item.quantity %></div>
+                        <div class="item-meta">₹<%= item.priceAtPurchase.toFixed(2) %> each</div>
+                    </div>
+                    <div class="item-price">₹<%= item.itemTotal.toFixed(2) %></div>
+                </div>
+                <% }); %>
+            </div>
+
+            <!-- Pricing Summary -->
+            <div class="pricing-summary">
+                <h3 style="margin-top: 0; color: #333;">Order Summary</h3>
+                <div class="pricing-row">
+                    <span>Subtotal:</span>
+                    <span>₹<%= pricing.subtotal.toFixed(2) %></span>
+                </div>
+                <% if (pricing.totalDiscountAmount > 0) { %>
+                <div class="pricing-row discount">
+                    <span>Discount:</span>
+                    <span>-₹<%= pricing.totalDiscountAmount.toFixed(2) %></span>
+                </div>
+                <% } %>
+                <div class="pricing-row">
+                    <span>Shipping:</span>
+                    <span>₹<%= pricing.shippingCharge.toFixed(2) %></span>
+                </div>
+                <div class="pricing-row">
+                    <span>Tax:</span>
+                    <span>₹<%= pricing.taxAmount.toFixed(2) %></span>
+                </div>
+                <div class="pricing-row pricing-total">
+                    <span>Total:</span>
+                    <span>₹<%= pricing.total.toFixed(2) %></span>
+                </div>
+            </div>
+
+            <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                We'll send you another email with tracking information once your order ships. 
+                In the meantime, you can always contact us if you have any questions.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <h3>What's Next?</h3>
+            <p>Your order is being processed and will be shipped soon. We'll notify you once it's on its way!</p>
+            
+            <div class="contact-info">
+                <p><strong>Need Help?</strong></p>
+                <p>Email: support@caroal.com | Phone: +91-XXXX-XXXXXX</p>
+            </div>
+
+            <div class="brand-footer">
+                <p>This email was sent to <%= email %></p>
+                <p>&copy; 2025 Caroal. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

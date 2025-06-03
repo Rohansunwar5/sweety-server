@@ -6,10 +6,18 @@ import { UnauthorizedError } from '../errors/unauthorized.error';
 import { UserRepository } from '../repository/user.repository';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { encode, encryptionKey, generateTOTPSecret, generateTOTPURI } from './crypto.service';
+import { encode, encryptionKey } from './crypto.service';
 import { encodedJWTCacheManager, profileCacheManager } from './cache/entities';
-import twoFactorAuthService from './2fa.service';
-import { generateQRCodeSVG } from '../utils/qrUtils';
+import { OAuth2Client } from 'google-auth-library';
+import { IAuthProvider } from '../models/user.model';
+import mailService from './mail.service';
+import whatsappService from './whatsapp.service';
+
+const googleAuthClient = new OAuth2Client(
+  config.GOOGLE_CLIENT_ID,
+  config.GOOGLE_CLIENT_SECRET,
+  'postmessage'
+);
 
 class AuthService {
   constructor(private readonly _userRepository: UserRepository) {
@@ -26,107 +34,11 @@ class AuthService {
     const success = await this.verifyHashPassword(password, user.password);
     if (!success) throw new UnauthorizedError('Invalid Email or Password');
 
-    if(user.twoFactorEnabled) {
-      if(!user.twoFactorSecret) throw new InternalServerError('2FA is enabled but no secret found');
-      
-      // short-lived token for 2FA verification
-      const tempToken = jwt.sign(
-        { 
-          _id: user._id.toString(), 
-          email: user.email, 
-          requires2FA: true 
-        },
-        config.JWT_SECRET,
-        { expiresIn: '5m' }
-      );
 
-      return { requires2FA: true, tempToken }
-    }
-
-    // regular login without 2FA ;
     const accessToken = await this.generateJWTToken(user._id);
     if (!accessToken) throw new InternalServerError('Failed to generate accessToken');
 
     return { accessToken };
-  }
-
-
-  async verify2FA(userId: string, code: string) {
-    const user = await this._userRepository.getUserById(userId);
-    if(!user) throw new NotFoundError('User not found');
-    if(!user.twoFactorEnabled || !user.twoFactorSecret) throw new BadRequestError('2FA not enabled for this user');
-
-    const isValid = await twoFactorAuthService.verifyLoginCode( user.twoFactorSecret, code);
-
-    if (!isValid) throw new UnauthorizedError('Invalid 2FA code');
-
-    // Generate final access token
-    const accessToken = await this.generateJWTToken(user._id);
-    if (!accessToken) throw new InternalServerError('Failed to generate accessToken');
-
-    return { accessToken };
-  }
-
-  async setup2FA(userId: string, email: string) {
-    const user = await this._userRepository.getUserById(userId);
-    if (!user) throw new NotFoundError('User not found');
-    if (user.twoFactorEnabled) throw new BadRequestError('2FA already enabled');
-
-    // const setupData = await twoFactorAuthService.setup2FA(email);
-
-    const secret = generateTOTPSecret();
-    if (!/^[A-Z2-7]{16,32}$/.test(secret)) throw new Error('Invalid secret generated');
-
-    const uri = generateTOTPURI(secret, email, 'rohan');
-    // console.log('Generated TOTP URI:', uri); 
-
-    const qrCode = generateQRCodeSVG(uri);
-    
-    // Store the unverified secret temporarily
-    await this._userRepository.updateUser({
-      _id: userId,
-      twoFactorSecret: secret,
-      twoFactorEnabled: false
-    });
-
-    return {
-      qrCode,
-      secret // For manual entry fallback
-    };
-  }
-
-  async confirm2FA(userId: string, code: string, secret: string) {
-    const user = await this._userRepository.getUserById(userId);
-    if (!user) throw new NotFoundError('User not found');
-
-    if (user.twoFactorEnabled) throw new BadRequestError('2FA already enabled');
-    if (user.twoFactorSecret.trim() !== secret.trim()) {
-      throw new BadRequestError(`Invalid 2FA setup state`);
-    }
-
-    // console.log('Verifying code:', code, 'against secret:', user.twoFactorSecret);
-    const isValid = await twoFactorAuthService.verifySetupCode(user.twoFactorSecret, code);
-    if (!isValid) {
-      console.log('Failed verification. Current server time:', new Date());
-      throw new UnauthorizedError('Invalid verification code');
-    }
-
-    await this._userRepository.updateUser({
-      _id: userId,
-      twoFactorEnabled: true
-    });
-  
-    return { success: true };
-  }
-
-  async disable2FA(userId: string) {
-    await this._userRepository.updateUser({
-      _id: userId,
-      twoFactorEnabled: false,
-      twoFactorSecret: '',
-    });
-    
-    return { success: true };
   }
 
   async verifyHashPassword(plainTextPassword: string, hashedPassword: string) {
@@ -156,7 +68,7 @@ class AuthService {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
   async signup(params: any) {
-    const { firstName, lastName, email, password } = params;
+    const { firstName, lastName, email, password, phone } = params;
     const existingUser = await this._userRepository.getUserByEmailId(email);
 
     if (existingUser) throw new BadRequestError('Email address already exists');
@@ -165,14 +77,36 @@ class AuthService {
     const hashedPassword = await this.hashPassword(password);
 
     const user = await this._userRepository.onBoardUser({
-      firstName, lastName, email, password: hashedPassword
+      firstName, lastName, email, password: hashedPassword, phone
     });
     
     if (!user) throw new InternalServerError('Failed to Onboard user');
 
-    // generate JWT Token
     const accessToken = await this.generateJWTToken(user._id);
     if (!accessToken) throw new InternalServerError('Failed to generate accessToken');
+
+    await mailService.sendEmail(
+      email,
+      'welcome-email.ejs',
+      {
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone
+      },
+      "Welcome to Caroal"
+    )
+
+    await whatsappService.sendWhatsAppTemplate(
+      phone, 
+      'welcome-message.ejs',
+      {
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        phone: phone
+      }
+    );
 
     return { accessToken };
   }
@@ -190,6 +124,86 @@ class AuthService {
     return cached;
   }
 
+  private async verifyGoogleToken(idToken: string) {
+    try {
+      const ticket = await googleAuthClient.verifyIdToken({
+        idToken, 
+        audience: config.GOOGLE_CLIENT_ID,
+      });
+
+      const payload = ticket.getPayload();
+      if(!payload) throw new UnauthorizedError('Invalid Google token');
+
+      if(!payload.email) throw new UnauthorizedError('Google email not provided');
+      
+
+      return {
+        email: payload.email,
+        firstName: payload.given_name || 'User',
+        lastName: payload.family_name || '',
+        picture: payload.picture || '',
+        emailVerified: payload.email_verified === true 
+      };
+
+    } catch (error) {
+      console.error('Google token verification failed: ', error);
+      throw new UnauthorizedError('Goggle authentication failed');
+    }
+  }
+
+  private async handleGoogleUser(googleData: {
+    email: string,
+    firstName: string,
+    lastName: string,
+    picture: string,
+  }) {
+    let user = await this._userRepository.getUserByEmailId(googleData.email);
+
+    if(!user) {
+      user = await this._userRepository.onBoardUser({
+        firstName: googleData.firstName,
+        lastName: googleData.lastName,
+        email: googleData.email,
+        phone: '',
+        authProvider: IAuthProvider.GOGGLE,
+        verified: true,
+        password: await this.generateRandomPassword()
+      });
+
+      if (!user) throw new InternalServerError('Failed to create user');
+      
+      return user._id;
+    
+    } else if (user.authProvider !== IAuthProvider.GOGGLE) {
+      throw new BadRequestError('Email already registered with password');
+    }
+
+    return user._id;
+  }
+
+  async googleLogin(code: string) {
+    const { tokens } = await googleAuthClient.getToken(code);
+    if(!tokens.id_token) throw new BadRequestError('Invalid authorization code');
+
+    const googleProfile = await this.verifyGoogleToken(tokens.id_token);
+    if(!googleProfile.emailVerified) throw new UnauthorizedError('Google email not verified');
+
+    const userId = await this.handleGoogleUser({
+     email: googleProfile.email,
+      firstName: googleProfile.firstName,
+      lastName: googleProfile.lastName,
+      picture: googleProfile.picture 
+    });
+
+    const accessToken = await this.generateJWTToken(userId);
+    return { accessToken };
+  }
+
+
+  private async generateRandomPassword() {
+    return bcrypt.hash(Math.random().toString(36).slice(2), 10);
+  }
+  
 }
 
 export default new AuthService(new UserRepository());

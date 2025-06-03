@@ -5,14 +5,9 @@ import { encodedJWTCacheManager } from '../../services/cache/entities';
 import { UnauthorizedError } from '../../errors/unauthorized.error';
 import { decode, encode, encryptionKey } from '../../services/crypto.service';
 import config from '../../config';
-import { UserRepository } from '../../repository/user.repository';
-
-const userRepository = new UserRepository();
 
 interface IJWTVerifyPayload {
   _id: string;
-  email: string;
-  twoFactorVerified?: boolean;
 }
 
 const getAuthMiddlewareByJWTSecret = (jwtSecret: string) => async (
@@ -26,19 +21,9 @@ const getAuthMiddlewareByJWTSecret = (jwtSecret: string) => async (
       throw new BadRequestError('Authorization header is missing');
     }
 
-    // 2. Extract and verify token
     const token = authHeader.split(' ')[1];
     if (!token) throw new BadRequestError('Token is missing or invalid');
-    
-    const decoded = JWT.verify(token, jwtSecret) as IJWTVerifyPayload;
-    if (!decoded._id || !decoded.email) {
-      throw new UnauthorizedError('Invalid token payload');
-    }
-
-    const { _id, email } = decoded;
-
-    const user = await userRepository.getUserById(_id);
-    if (!user) throw new UnauthorizedError('User not found');
+    const { _id } = JWT.verify(token, jwtSecret) as IJWTVerifyPayload;
 
     const key = await encryptionKey(config.JWT_CACHE_ENCRYPTION_KEY);
     const cachedJWT = await encodedJWTCacheManager.get({ userId: _id });
@@ -54,21 +39,11 @@ const getAuthMiddlewareByJWTSecret = (jwtSecret: string) => async (
     }
 
     req.user = {
-      _id: decoded._id,
-      email: decoded.email,
-      twoFactorEnabled: user.twoFactorEnabled
+      _id,
     };
-    
     next();
   } catch (error) {
-    if (error instanceof JWT.TokenExpiredError) {
-      next(new UnauthorizedError('Token expired'));
-    } else if (error instanceof JWT.JsonWebTokenError) {
-      next(new UnauthorizedError('Invalid token'));
-    } else {
-      next(error);
-    }
+    next();
   }
 };
-
 export default getAuthMiddlewareByJWTSecret;
