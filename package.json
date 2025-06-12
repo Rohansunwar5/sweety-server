@@ -6,7 +6,7 @@
   "scripts": {
     "start": "NODE_OPTIONS='--max-old-space-size=512' node dist/index.js",
     "dev": "ts-node-dev --files --respawn src/index.ts",
-    "prepare": "husky install",
+    "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
     "clean": "rimraf dist/",
     "build": "npm run clean && tsc",
     "lint:fix": "eslint --fix --ext .ts ."
