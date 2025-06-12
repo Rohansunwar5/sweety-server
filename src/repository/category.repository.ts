@@ -17,7 +17,7 @@ export class CategoryRepository {
         return this._model.find({ isActive: true });
     }
 
-    async deleteCategory(id: string): Promise<ICategory | null> {
+    async deleteCategory(id: string) {
         return this._model.findByIdAndDelete(id);
     }
 
