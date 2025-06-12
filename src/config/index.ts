@@ -9,6 +9,7 @@ const config = {
   REDIS_PORT: process.env.REDIS_PORT! as string,
   PORT: process.env.PORT! as string,
   JWT_SECRET: process.env.JWT_SECRET! as string,
+  ADMIN_JWT_SECRET: process.env.ADMIN_JWT_SECRET! as string,
   ACCESS_TOKEN_EXPIRY: process.env.ACCESS_TOKEN_EXPIRY! as string,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID! as string,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET! as string,
@@ -23,6 +24,7 @@ const config = {
 
   SERVER_NAME: `${process.env.SERVER_NAME}-${process.env.NODE_ENV}`! as string,
   JWT_CACHE_ENCRYPTION_KEY: process.env.JWT_CACHE_ENCRYPTION_KEY! as string,
+  ADMIN_JWT_CACHE_ENCRYPTION_KEY: process.env.ADMIN_JWT_CACHE_ENCRYPTION_KEY! as string,
   DEFAULT_COUNTRY_CODE: 'IN',
 };
 

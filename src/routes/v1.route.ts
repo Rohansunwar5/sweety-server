@@ -8,11 +8,13 @@ import cartRouter from './cart.route';
 import discountRouter from './discount.route';
 import paymentRouter from './payment.route';
 import categoryRouter from './category.route';
+import adminRouter from './admin.route';
 
 const v1Router = Router();
 
 v1Router.get('/', asyncHandler(helloWorld));
 v1Router.get('/health', asyncHandler(health));
+v1Router.use('/admin', adminRouter);
 v1Router.use('/auth', authRouter);
 v1Router.use('/product', productRouter);
 v1Router.use('/cart', cartRouter);

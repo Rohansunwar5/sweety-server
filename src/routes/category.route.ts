@@ -1,11 +1,11 @@
 import { Router } from "express";
-import isLoggedIn from "../middlewares/isLoggedIn.middleware";
 import { asyncHandler } from "../utils/asynchandler";
 import { createCategory } from "../controllers/category.controller";
+import isAdminLoggedIn from "../middlewares/isAdminLoggedIn.middleware";
 
 const categoryRouter = Router();
 
-categoryRouter.post('/create', isLoggedIn, asyncHandler(createCategory));
+categoryRouter.post('/create', isAdminLoggedIn, asyncHandler(createCategory));
 
 
 export default categoryRouter;

@@ -13,11 +13,3 @@ export const transporter = nodemailer.createTransport({
     rejectUnauthorized: false 
   }
 });
-
-transporter.verify((error) => {
-  if (error) {
-    console.error('Error with mail transporter:', error);
-  } else {
-    console.log('Mail transporter is ready');
-  }
-});

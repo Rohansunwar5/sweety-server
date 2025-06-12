@@ -9,6 +9,7 @@ import {
   getPaymentByOrderId,
   getPaymentHistory,
 } from "../controllers/payment.controller";
+import isAdminLoggedIn from "../middlewares/isAdminLoggedIn.middleware";
 
 const paymentRouter = Router();
 
@@ -17,6 +18,6 @@ paymentRouter.post('/success', asyncHandler(handleSuccessfulPayment));
 paymentRouter.post('/failure', asyncHandler(handleFailedPayment));
 paymentRouter.get('/details/:paymentId', isLoggedIn, asyncHandler(getPaymentDetails));
 paymentRouter.get('/order/:orderId', isLoggedIn, asyncHandler(getPaymentByOrderId));
-paymentRouter.get('/history', isLoggedIn, asyncHandler(getPaymentHistory));
+paymentRouter.get('/history', isAdminLoggedIn, asyncHandler(getPaymentHistory));
 
 export default paymentRouter;

@@ -21,3 +21,10 @@ export const profile = async (req: Request, res: Response, next: NextFunction) =
 
   next(response);
 };
+
+export const googleSignIn = async (req: Request, res: Response, next: NextFunction) => {
+  const { code } = req.body;
+  const response = await authService.googleLogin(code);
+
+  next(response);
+}

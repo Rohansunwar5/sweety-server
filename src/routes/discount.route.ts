@@ -7,12 +7,13 @@ import {
   applyDiscountToCart
 } from '../controllers/discount.controller';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
+import isAdminLoggedIn from '../middlewares/isAdminLoggedIn.middleware';
 
 const discountRouter = Router();
 
 // Admin routes
-discountRouter.post('/', isLoggedIn, asyncHandler(createDiscount));
-discountRouter.patch('/:id', isLoggedIn, asyncHandler(updateDiscount));
+discountRouter.post('/', isAdminLoggedIn, asyncHandler(createDiscount));
+discountRouter.patch('/:id', isAdminLoggedIn, asyncHandler(updateDiscount));
 
 // Public routes
 discountRouter.get('/code/:code', asyncHandler(getDiscountByCode));
