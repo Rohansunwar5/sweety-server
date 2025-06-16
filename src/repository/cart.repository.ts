@@ -110,5 +110,13 @@ export class CartRepository {
             { new: true }
         );
     }
+
+    async replaceCartItems(userId: string, items: CartItemInput[]) {
+    return cartModel.findOneAndUpdate(
+      { user: userId },
+      { $set: { items } },
+      { new: true, upsert: true }
+    );
+  }
     
 }

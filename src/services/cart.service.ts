@@ -1,3 +1,4 @@
+import { throws } from "assert";
 import { BadRequestError } from "../errors/bad-request.error";
 import { NotFoundError } from "../errors/not-found.error";
 import { ICart } from "../models/cart.model";
@@ -243,6 +244,44 @@ class CartService {
     async deleteCart(userId: string) {
         return this._cartRepository.deleteCart(userId);
     }
+
+    async mergeCarts(userId: string, guestCartItems: CartItemInput[]) {
+    let userCart = await this._cartRepository.getCartByUserId(userId);
+    if(!userCart) {
+        userCart = await this._cartRepository.createCart(userId);
+    }
+
+    // Merge items 
+    const mergedMap = new Map<string, CartItemInput>();
+    const getKey = (item: { product: string, size?: string }) =>
+        `${item.product}_${item.size || ''}`;
+
+    // Add user cart items - convert ObjectId to string and handle document conversion
+    for (const item of userCart.items || []) {
+        const cartItemData: CartItemInput = {
+            product: item.product.toString(), // Convert ObjectId to string
+            quantity: item.quantity,
+            size: item.size,
+            priceAtAddition: 0 // You might want to store this in your schema or fetch from product
+        };
+        mergedMap.set(getKey(cartItemData), cartItemData);
+    }
+
+    // Merge in guest cart items
+    for (const item of guestCartItems) {
+        const key = getKey(item);
+        if (mergedMap.has(key)) {
+            const existing = mergedMap.get(key)!;
+            mergedMap.set(key, { ...existing, quantity: existing.quantity + item.quantity });
+        } else {
+            mergedMap.set(key, { ...item });
+        }
+    }
+
+    const mergedItems = Array.from(mergedMap.values());
+
+    return this._cartRepository.replaceCartItems(userId, mergedItems);
+}
 }
 
 export default new CartService(new CartRepository());

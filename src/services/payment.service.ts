@@ -56,7 +56,7 @@ class PaymentService {
 
         const razorpayOrder = await razorpayService.createOrder(
             orderId,
-            amountInPaise, // Now a clean integer
+            amountInPaise, 
             'INR',
             { ...notes, orderId, userId: user }
         )

@@ -51,25 +51,6 @@ const userSchema = new mongoose.Schema(
     wishlist: [{
       type: mongoose.Types.ObjectId,
     }],
-    // cart: [{
-    //   product: {
-    //     type: mongoose.Types.ObjectId,
-    //     required: true,
-    //   },
-    //   quantity: {
-    //     type: Number, 
-    //     required: true,
-    //     min: 1,
-    //     default: 1,
-    //   },
-    //   size: {
-    //     type: String,
-    //   },
-    //   addedAt: {
-    //     type: Date,
-    //     default: Date.now
-    //   }
-    // }],
     password: {
       type: String,
       minLength: PASSWORD_MIN_LENGTH,
@@ -115,7 +96,6 @@ export interface IUser extends mongoose.Schema {
   }>;
   wishlist?: mongoose.Types.ObjectId[];
   isGuest?: boolean;
-
 }
 
 export default mongoose.model<IUser>('User', userSchema);

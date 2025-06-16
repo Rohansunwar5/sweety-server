@@ -63,3 +63,12 @@ export const getCartWithDetails = async (req: Request, res: Response, next: Next
   next(response);
 };
 
+export const mergeGuestCart = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user._id;
+  const guestCartItems = req.body.guestCart || [];
+
+  const updatedCart = await cartService.mergeCarts(userId, guestCartItems);
+
+  next(updatedCart);
+}
+
