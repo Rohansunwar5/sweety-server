@@ -14,7 +14,7 @@ class MailService {
         subject: string,
     ) {
         try {
-            const templatePath = path.join(__dirname, '../templates', templateName);
+            const templatePath = path.resolve(__dirname, '../templates', templateName);
 
             const fs = require('fs');
             if (!fs.existsSync(templatePath)) {

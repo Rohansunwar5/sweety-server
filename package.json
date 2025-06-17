@@ -8,7 +8,7 @@
     "dev": "ts-node-dev --files --respawn src/index.ts",
     "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
     "clean": "rimraf dist/",
-    "build": "npm run clean && tsc",
+    "build": "tsc && cp -r src/templates dist/templates",
     "lint:fix": "eslint --fix --ext .ts ."
   },
   "keywords": [],
