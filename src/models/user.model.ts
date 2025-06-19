@@ -28,8 +28,7 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
-      minLength: PHONE_MIN_LENGTH,
+      // minLength: PHONE_MIN_LENGTH,
       trim: true,
     },
     img: {
@@ -79,7 +78,7 @@ export interface IUser extends mongoose.Schema {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone?: string;
   authProvider: string;
   img?: string;
   verified: boolean;

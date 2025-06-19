@@ -16,7 +16,6 @@ import whatsappService from './whatsapp.service';
 const googleAuthClient = new OAuth2Client(
   config.GOOGLE_CLIENT_ID,
   config.GOOGLE_CLIENT_SECRET,
-  'postmessage'
 );
 
 class AuthService {
@@ -182,7 +181,10 @@ class AuthService {
   }
 
   async googleLogin(code: string) {
-    const { tokens } = await googleAuthClient.getToken(code);
+    const { tokens } = await googleAuthClient.getToken({
+      code,
+      redirect_uri: 'http://localhost:3000/auth/google/callback'
+    });
     if(!tokens.id_token) throw new BadRequestError('Invalid authorization code');
 
     const googleProfile = await this.verifyGoogleToken(tokens.id_token);

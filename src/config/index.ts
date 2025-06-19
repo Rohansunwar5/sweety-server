@@ -21,6 +21,10 @@ const config = {
   TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID! as string,
   TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN! as string,
   TWILIO_WHATSAPP_NUMBER: process.env.TWILIO_WHATSAPP_NUMBER! as string,
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME! as string,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY! as string,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET! as string,
+
 
   SERVER_NAME: `${process.env.SERVER_NAME}-${process.env.NODE_ENV}`! as string,
   JWT_CACHE_ENCRYPTION_KEY: process.env.JWT_CACHE_ENCRYPTION_KEY! as string,

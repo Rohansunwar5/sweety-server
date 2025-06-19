@@ -24,7 +24,6 @@ export const productValidator = [
   isRequired('price'),
   isRequired('originalPrice'),
   isRequired('description'),
-  isRequired('images'),
   isRequired('sizeChart'),
   isRequired('tags'),
   ...validateRequest
@@ -46,8 +45,6 @@ export const updateProductValidator = [
 
 export const updateProductStockValidator = [
   isRequired('productId'),
-  isRequired('size'),
-  isRequired('quantity'),
   ...validateRequest,
 ]
 

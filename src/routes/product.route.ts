@@ -3,10 +3,11 @@ import { asyncHandler } from "../utils/asynchandler";
 import { createProduct, getAvailableSizes, getProductById, getProductsByCategory, listProducts, searchProducts, updateProduct } from "../controllers/product.controllers";
 import isAdminLoggedIn from "../middlewares/isAdminLoggedIn.middleware";
 import { productValidator, searchProductValidator, updateProductStockValidator, updateProductValidator } from "../middlewares/validators/auth.validator";
+import { uploadProductImages } from "../middlewares/multer.middleware";
 
 const productRouter = Router();
 
-productRouter.post('/create', isAdminLoggedIn, productValidator, asyncHandler(createProduct));
+productRouter.post('/create', isAdminLoggedIn, uploadProductImages, productValidator, asyncHandler(createProduct));
 productRouter.get('/search', searchProductValidator, asyncHandler(searchProducts));
 productRouter.patch('/update/:id', isAdminLoggedIn, updateProductValidator, asyncHandler(updateProduct));
 productRouter.get('/', asyncHandler(listProducts));

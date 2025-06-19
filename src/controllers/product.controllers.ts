@@ -3,16 +3,17 @@ import productService from "../services/product.service";
 import { BadRequestError } from "../errors/bad-request.error";
 
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
-    const { name, code, category, sizeStock, price, originalPrice, description, images, sizeChart, tags } = req.body;
-    const response =  await productService.createProduct({  name, code, category, sizeStock, price, originalPrice,  description, images, sizeChart, tags })
+    const { name, code, category, sizeStock, price, originalPrice, description, sizeChart, tags } = req.body;
+    
+    const response = await productService.createProduct({ name, code, category, sizeStock: JSON.parse(sizeStock), price: Number(price), originalPrice: Number(originalPrice), description, sizeChart, tags: JSON.parse(tags), files: req.files as Express.Multer.File[]});
 
     next(response);
 }
 
 export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const {  name, code, category, sizeStock, sizeChart, price, originalPrice,  description,  images, isActive,  tags } = req.body;
-    const response =  await productService.updateProduct(id, { name, code, category, sizeStock, sizeChart, price, originalPrice, description, images, isActive, tags});
+    const { name, code, category, sizeStock, sizeChart, price, originalPrice, description, isActive, tags, existingImages } = req.body;
+    const response =  await productService.updateProduct(id, { name, code, category, sizeStock: JSON.parse(sizeStock), sizeChart, price: Number(price), originalPrice: Number(originalPrice), description, isActive: JSON.parse(isActive), tags: JSON.parse(tags), existingImages: JSON.parse(existingImages),files: req.files as Express.Multer.File[]});
 
     next(response);
 }
@@ -76,6 +77,7 @@ export const searchProducts = async (req: Request, res: Response, next: NextFunc
 export const getAvailableSizes = async (req: Request, res: Response, next: NextFunction) => {
     const { productId } = req.params;
     const response = await productService.getAvailableSizes(productId);
+    
     next(response);
 };
 

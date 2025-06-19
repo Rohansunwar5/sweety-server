@@ -14,6 +14,11 @@ export interface CreateProductParams {
     tags?: string [];
 }
 
+export interface CreateProductWithImagesParams extends Omit<CreateProductParams, 'images'> {
+    files?: Express.Multer.File[];
+    existingImages?: string[];
+}
+
 export interface UpdateProductParams {
     name?: string;
     code?: string;
@@ -26,6 +31,11 @@ export interface UpdateProductParams {
     sizeChart?: string;
     isActive?: boolean;
     tags?: string[];
+}
+
+export interface UpdateProductWithImagesParams extends Omit<UpdateProductParams, 'images'> {
+    files?: Express.Multer.File[];
+    existingImages?: string[];
 }
 
 export interface ListProductsParams {
@@ -48,7 +58,7 @@ export class ProductRepository {
         return this._model.create(params);
     }
 
-     async updateProductStock(params: UpdateStockParams) {
+    async updateProductStock(params: UpdateStockParams) {
         const { productId, size, quantity } = params;
         
         return this._model.findOneAndUpdate(
@@ -66,7 +76,7 @@ export class ProductRepository {
             id, 
             params, 
             { new: true, runValidators: true }
-        ).populate('category', 'name');
+        );
     }
 
 
@@ -98,8 +108,7 @@ export class ProductRepository {
             this._model.find(query)
                 .sort(sort || '-createdAt')
                 .skip((page - 1) * limit)
-                .limit(limit)
-                .populate('category', 'name'),
+                .limit(limit),
             this._model.countDocuments(query)
         ]);
 
@@ -117,14 +126,13 @@ export class ProductRepository {
         const query = { 
             category: categoryId, 
             isActive: true,
-            'sizeStock.stock': { $gt: 0 } // Only products with available stock
+            'sizeStock.stock': { $gt: 0 }
         };
 
         const [products, total] = await Promise.all([
             this._model.find(query)
                 .skip((page - 1) * limit)
-                .limit(limit)
-                .populate('category', 'name'),
+                .limit(limit),
             this._model.countDocuments(query)
         ]);
 
@@ -148,18 +156,14 @@ export class ProductRepository {
         const searchQuery = { 
             $text: { $search: query }, 
             isActive: true,
-            'sizeStock.stock': { $gt: 0 } // Only products with available stock
+            'sizeStock.stock': { $gt: 0 }
         };
 
         const [products, total] = await Promise.all([
-            this._model.find(
-                searchQuery,
-                { score: { $meta: 'textScore' } }
-            )
-            .sort({ score: { $meta: 'textScore' } })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .populate('category', 'name'),
+            this._model.find(searchQuery)
+                .sort({ score: { $meta: 'textScore' } })
+                .skip((page - 1) * limit)
+                .limit(limit),
             this._model.countDocuments(searchQuery)
         ]);
 
