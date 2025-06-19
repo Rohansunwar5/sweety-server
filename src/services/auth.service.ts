@@ -183,7 +183,7 @@ class AuthService {
   async googleLogin(code: string) {
     const { tokens } = await googleAuthClient.getToken({
       code,
-      redirect_uri: 'http://localhost:3000/auth/google/callback'
+      redirect_uri: 'http://localhost:3000/Caroal/auth/google/callback'
     });
     if(!tokens.id_token) throw new BadRequestError('Invalid authorization code');
 
