@@ -1,3 +1,4 @@
+import config from "../config";
 import { BadRequestError } from "../errors/bad-request.error";
 import { InternalServerError } from "../errors/internal-server.error";
 import { NotFoundError } from "../errors/not-found.error";
@@ -17,6 +18,24 @@ export interface InitiatePaymentParams {
   method: string;
   notes?: any;
 }
+
+interface RazorpayPaymentResponse {
+  id: string;
+  order_id: string;
+  status: string;
+  amount: number | string;
+  currency: string;
+  method: string;
+  captured: boolean;
+  card_id?: string;
+  bank?: string;
+  wallet?: string;
+  vpa?: string;
+  email: string;
+  contact: string;
+  created_at: number;
+}
+
 
 export interface PaymentResult {
   payment: any;
@@ -76,76 +95,123 @@ class PaymentService {
         });
 
         return { 
-          payment, 
+          payment,
           order: razorpayOrder,
-          testCards: {
-              success: '4111 1111 1111 1111',
-              failure: '4111 1111 1111 1112',
-              authentication: '4012 0010 3714 1112'
-          },
-          testInstructions: 'Use these test cards for payment simulation in test mode'
+          key: config.RAZORPAY_KEY_ID
         };
     }
 
-    async handleSuccessfulPayment( razorpayOrderId: string, razorpayPaymentId: string, razorpayPayment: any ) {
-        const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
-        if (!payment) {
+   async handleSuccessfulPayment(
+    razorpayOrderId: string,
+    razorpayPaymentId: string,
+    razorpayPayment: RazorpayPaymentResponse
+  ) {
+    try {
+      const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
+      if (!payment) {
         throw new NotFoundError('Payment not found');
+      }
+
+      const paymentAmount = typeof razorpayPayment.amount === 'string' 
+        ? parseFloat(razorpayPayment.amount) 
+        : razorpayPayment.amount;
+
+      // Verify payment amount matches order amount
+      const expectedAmount = payment.amount * 100; // Convert to paise
+      if (paymentAmount !== expectedAmount) {
+        throw new BadRequestError('Payment amount mismatch');
+      }
+
+      // Update payment status with additional details
+      const updatedPayment = await this._paymentRepository.updatePayment(
+        payment._id.toString(),
+        {
+          razorpayPaymentId,
+          status: IPaymentStatus.CAPTURED,
+          notes: {
+            ...payment.notes,
+            razorpayPayment: {
+              id: razorpayPayment.id,
+              status: razorpayPayment.status,
+              method: razorpayPayment.method,
+              bank: razorpayPayment.bank,
+              wallet: razorpayPayment.wallet,
+              vpa: razorpayPayment.vpa,
+              captured: razorpayPayment.captured,
+              created_at: new Date(razorpayPayment.created_at * 1000)
+            }
+          }
         }
+      );
 
-        // Update payment status
-        const updatedPayment = await this._paymentRepository.updatePayment(payment._id.toString(), {
-        razorpayPaymentId,
-        status: IPaymentStatus.CAPTURED,
-        notes: { ...payment.notes, razorpayPayment }
-        });
+      // Update order status
+      await orderService.updateOrderStatus(
+        payment.orderId.toString(),
+        IOrderStatus.PROCESSING
+      );
 
-        // Update order status
-        await orderService.updateOrderStatus(payment.orderId.toString(), IOrderStatus.PROCESSING);
-        const orderDetails = await this._orderRepository.getOrderById(payment.orderId.toString());
-        if(!orderDetails) throw new InternalServerError();
+      // Get order details
+      const orderDetails = await this._orderRepository.getOrderById(
+        payment.orderId.toString()
+      );
+      if (!orderDetails) throw new InternalServerError('Order not found');
 
-        const user =  await this._userRepository.getUserById(payment.user.toString());
-        if(!user) throw new NotFoundError('user not found');
+      // Get user details
+      const user = await this._userRepository.getUserById(
+        payment.user.toString()
+      );
+      if (!user) throw new NotFoundError('User not found');
 
-        const emailData = {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          orderNumber: orderDetails.orderNumber,
-          orderDate: new Date(orderDetails.createdAt).toLocaleDateString('en-IN', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          }),
-          items: orderDetails.items.map(item => ({
-            productName: item.productName,
-            productCode: item.productCode,
-            quantity: item.quantity,
-            size: item.size?.toUpperCase() || 'N/A',
-            priceAtPurchase: item.priceAtPurchase,
-            itemTotal: item.itemTotal
-          })),
-           pricing: {
-            subtotal: orderDetails.subtotal,
-            totalDiscountAmount: orderDetails.totalDiscountAmount || 0,
-            shippingCharge: orderDetails.shippingCharge,
-            taxAmount: orderDetails.taxAmount,
-            total: orderDetails.total
-          },
+      // Prepare email data
+      const emailData = {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        orderNumber: orderDetails.orderNumber,
+        orderDate: new Date(orderDetails.createdAt).toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        paymentDetails: {
+          method: razorpayPayment.method,
+          amount: orderDetails.total,
+          transactionId: razorpayPaymentId
+        },
+        items: orderDetails.items.map(item => ({
+          productName: item.productName,
+          productCode: item.productCode,
+          quantity: item.quantity,
+          size: item.size?.toUpperCase() || 'N/A',
+          priceAtPurchase: item.priceAtPurchase,
+          itemTotal: item.itemTotal
+        })),
+        pricing: {
+          subtotal: orderDetails.subtotal,
+          totalDiscountAmount: orderDetails.totalDiscountAmount || 0,
+          shippingCharge: orderDetails.shippingCharge,
+          taxAmount: orderDetails.taxAmount,
+          total: orderDetails.total
         }
+      };
 
-        await mailService.sendEmail(
-            user.email,
-            'order-confirmation-email.ejs',
-            emailData,
-            `Order Confirmation - ${orderDetails.orderNumber}`
-        )
+      // Send confirmation email
+      await mailService.sendEmail(
+        user.email,
+        'order-confirmation-email.ejs',
+        emailData,
+        `Order Confirmation - ${orderDetails.orderNumber}`
+      );
 
-        await cartService.clearCartItems(payment.user.toString());
+      // Clear cart
+      await cartService.clearCartItems(payment.user.toString());
 
-        return updatedPayment;
+      return updatedPayment;
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      throw error;
     }
+  }
 
     async handleFailedPayment(razorpayOrderId: string, razorpayPaymentId: string) {
         const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
@@ -162,30 +228,6 @@ class PaymentService {
 
         return updatedPayment;
     }
-
-    // async initiateRefund(params: RefundPaymentParams) {
-    //     const { paymentId, amount, reason } = params;
-        
-    //     const payment = await this._paymentRepository.getPaymentById(paymentId);
-    //     if (!payment) throw new NotFoundError('Payment not found');
-
-    //     if (payment.status !== IPaymentStatus.CAPTURED) throw new BadRequestError('Only captured payments can be refunded');
-
-    //     if (!payment.razorpayPaymentId) throw new BadRequestError('Razorpay payment ID not found');
-        
-
-    //     if (amount > payment.amount) throw new BadRequestError('Refund amount cannot exceed payment amount');
-        
-
-    //     // Initiate refund with Razorpay
-    //     const refund = await razorpayService.initiateRefund(
-    //     payment.razorpayPaymentId,
-    //     amount,
-    //     reason
-    //     );
-
-    //     return refund;
-    // }
 
     async getPaymentDetails(paymentId: string, userId: string) {
     const payment = await this._paymentRepository.getPaymentById(paymentId);
@@ -216,6 +258,36 @@ class PaymentService {
   async getPaymentHistory(userId: string, page: number = 1, limit: number = 10) {
     return this._paymentRepository.getPaymentsByUser(userId, page, limit);
   }
+
+  
+
+  // async verifyPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) {
+  //       try {
+  //           // Verify signature
+  //           const isValid = await razorpayService.verifyPaymentSignature(
+  //               razorpayOrderId, 
+  //               razorpayPaymentId, 
+  //               razorpaySignature
+  //           );
+
+  //           if (!isValid) {
+  //               throw new BadRequestError('Invalid payment signature');
+  //           }
+
+  //           // Fetch payment details from Razorpay
+  //           const razorpayPayment = await razorpayService.fetchPayment(razorpayPaymentId);
+            
+  //           // Process successful payment
+  //           return await this.handleSuccessfulPayment(
+  //               razorpayOrderId,
+  //               razorpayPaymentId,
+  //               razorpayPayment
+  //           );
+  //       } catch (error) {
+  //           console.error('Payment verification error:', error);
+  //           throw error;
+  //       }
+  //   }
 }
 
 export default new PaymentService(new PaymentRepository(), new UserRepository(), new OrderRepository());

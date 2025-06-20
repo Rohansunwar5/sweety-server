@@ -9,9 +9,10 @@ export const initiatePayment = async (req: Request, res: Response, next: NextFun
   next(response);
 };
 
-export const handleSuccessfulPayment = async (req: Request, res: Response, next: NextFunction) => {
-  const { razorpayOrderId, razorpayPaymentId, razorpayPayment } = req.body;
-  const response = await paymentService.handleSuccessfulPayment( razorpayOrderId, razorpayPaymentId, razorpayPayment);
+export const handleSuccessfulPayment = async ( req: Request, res: Response, next: NextFunction ) => {
+  const { razorpay_order_id: razorpayOrderId, razorpay_payment_id: razorpayPaymentId,razorpay_signature: razorpaySignature } = req.body;
+
+  const response = await paymentService.handleSuccessfulPayment( razorpayOrderId, razorpayPaymentId, razorpaySignature );
 
   next(response);
 };
