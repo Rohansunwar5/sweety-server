@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import orderService from "../services/order.service";
 import { BadRequestError } from "../errors/bad-request.error";
+import { IOrderStatus } from "../models/order.model";
 
 export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user?._id;
@@ -26,18 +27,25 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
 //     next(response);
 // }
 
-// export const getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
-//     const userId = req.user?._id;
-//     if (!userId) throw new BadRequestError('User not authenticated');
+export const getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?._id;
+    if (!userId) throw new BadRequestError('User not authenticated');
     
-//     const page = parseInt(req.query.page as string) || 1;
-//     const limit = parseInt(req.query.limit as string) || 10;
-//     const status = req.query.status as string || IPaymentStatus.CAPTURED;
-    
-//     const response = await orderService.getUserOrders(userId, page, limit, status);
+    // Parse pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
 
-//     next(response);
-// }
+    // Optional order status filter
+    let status: IOrderStatus | undefined = undefined;
+    const statusQuery = req.query.status as string;
+    if (statusQuery && Object.values(IOrderStatus).includes(statusQuery as IOrderStatus)) {
+        status = statusQuery as IOrderStatus;
+    }
+
+    const response = await orderService.getUserOrders(userId.toString(), page, limit, status);
+
+    next(response);
+};
 
 export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

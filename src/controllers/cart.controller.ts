@@ -5,7 +5,7 @@ import { ApplyDiscountInput, CartItemInput, UpdateCartItemInput } from '../repos
 export const getCart = async (req: Request, res: Response, next: NextFunction) => {
   const { _id: userId } = req.user;
   const response = await cartService.getCart(userId);
-
+  
   next(response);
 };
 
