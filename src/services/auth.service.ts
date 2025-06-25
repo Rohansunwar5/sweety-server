@@ -123,6 +123,43 @@ class AuthService {
     return cached;
   }
 
+  async updateProfile(params: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  _id: string;
+  img?: string;
+  addresses?: Array<{
+    name?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    pinCode?: string;
+    country?: string;
+    isDefault?: boolean;
+  }>;
+}) {
+  const { firstName, lastName, email, phone, _id, img, addresses,
+  } = params;
+
+    const user = await this._userRepository.updateUser({
+      firstName,
+      lastName,
+      email,
+      phone,
+      _id,
+      img,
+      addresses,
+    });
+
+    if (!user) throw new NotFoundError('User not found');
+
+    return user;
+  }
+
+
   private async verifyGoogleToken(idToken: string) {
     try {
       const ticket = await googleAuthClient.verifyIdToken({

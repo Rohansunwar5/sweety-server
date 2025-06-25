@@ -31,22 +31,50 @@ export class UserRepository {
   });
 }
   async getUserById(id: string) {
-    return this._model.findById(id).select('img _id  firstName lastName email phone createdAt updatedAt wishlist cart __v');
+    return this._model.findById(id).select('img _id  firstName lastName email phone addresses createdAt updatedAt wishlist cart __v');
   }
 
-  // async updateUser(params: {
-  //   firstName?: string, lastName?: string, isdCode?: string, phoneNumber?: string, _id: string, bio?: string, location?: string, twoFactorSecret?: string, twoFactorEnabled?:boolean, company?: { name?: string, url?: string }, socials?: {
-  //     twitter?: string,
-  //     github?: string,
-  //     facebook?: string,
-  //     instagram?: string,
-  //     linkedin?: string,
-  //   }
-  // }) {
-  //   const { firstName, lastName, isdCode, phoneNumber, _id, twoFactorEnabled, twoFactorSecret, bio, location, company, socials } = params;
+async updateUser(params: {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  _id: string;
+  img?: string;
+  addresses?: Array<{
+    name?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    pinCode?: string;
+    country?: string;
+    isDefault?: boolean;
+  }>;
+}) {
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    _id,
+    img,
+    addresses,
+  } = params;
 
-  //   return this._model.findByIdAndUpdate(_id, { firstName, lastName, isdCode, phoneNumber, bio, location, company, socials, twoFactorEnabled, twoFactorSecret }, { new: true });
-  // }
+  return this._model.findByIdAndUpdate(
+    _id,
+    {
+      firstName,
+      lastName,
+      email,
+      phone,
+      img,
+      addresses,
+    },
+    { new: true }
+  );
+}
   
   async verifyUserId(userId: string) {
     return this._model.findByIdAndUpdate(userId, {

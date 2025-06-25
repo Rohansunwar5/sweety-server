@@ -220,7 +220,6 @@ class OrderService {
     return this._orderRepository.getOrderStats(userId);
   }
 
-  // Private helper methods
   private async generateOrderNumber(): Promise<string> {
     const timestamp = Date.now().toString();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -228,7 +227,6 @@ class OrderService {
   }
 
   private calculateShippingCharge(subtotal: number): number {
-    // Free shipping above ₹500
     return subtotal = 10;
   }
 
