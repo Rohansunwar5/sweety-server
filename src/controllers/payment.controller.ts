@@ -9,12 +9,43 @@ export const initiatePayment = async (req: Request, res: Response, next: NextFun
   next(response);
 };
 
-export const handleSuccessfulPayment = async ( req: Request, res: Response, next: NextFunction ) => {
-  const { razorpay_order_id: razorpayOrderId, razorpay_payment_id: razorpayPaymentId,razorpay_signature: razorpaySignature } = req.body;
+export const handleSuccessfulPayment = async (req: Request, res: Response) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-  const response = await paymentService.handleSuccessfulPayment( razorpayOrderId, razorpayPaymentId, razorpaySignature );
+    console.log('Payment success request:', {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature: razorpay_signature ? 'present' : 'missing'
+    });
 
-  next(response);
+    // Validate required parameters
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required payment parameters'
+      });
+    }
+
+    // Call service with signature verification
+    const result = await paymentService.handleSuccessfulPayment(
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment processed successfully',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Payment processing error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Payment processing failed'
+    });
+  }
 };
 
 export const handleFailedPayment = async (req: Request, res: Response, next: NextFunction) => {

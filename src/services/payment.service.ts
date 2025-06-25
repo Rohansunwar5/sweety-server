@@ -101,129 +101,150 @@ class PaymentService {
         };
     }
 
-   async handleSuccessfulPayment( razorpayOrderId: string, razorpayPaymentId: string,razorpayPayment: RazorpayPaymentResponse ) {
-    try {
-      const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
-    if (!payment) {
-      throw new NotFoundError('Payment not found');
-    }
+    async handleSuccessfulPayment(
+        razorpayOrderId: string, 
+        razorpayPaymentId: string,
+        razorpaySignature: string  // Changed: now expects signature only
+    ) {
+        try {
+            // 1. Get stored payment record
+            const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
+            if (!payment) {
+                throw new NotFoundError('Payment not found');
+            }
 
-    // Get amount from Razorpay response (could be in paise or rupees)
-    let paymentAmount = typeof razorpayPayment.amount === 'string' 
-      ? parseFloat(razorpayPayment.amount) 
-      : razorpayPayment.amount;
+            // 2. Verify signature using razorpayService
+            const isValidSignature = await razorpayService.verifyPaymentSignature(
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySignature
+            );
 
-    // Debug logs - very important for troubleshooting
-    console.log('Razorpay payment amount:', paymentAmount);
-    console.log('Stored payment amount:', payment.amount);
-    console.log('Full Razorpay response:', razorpayPayment);
+            if (!isValidSignature) {
+                throw new BadRequestError('Invalid payment signature');
+            }
 
-    // Convert both amounts to paise for comparison
-    const expectedAmountInPaise = Math.round(payment.amount * 100);
-    
-    // Check if Razorpay amount is likely in rupees (amount < 100 when it should be 3799)
-    if (paymentAmount < 100) {
-      paymentAmount = Math.round(paymentAmount * 100); // Convert to paise
-    }
+            // 3. Fetch payment details from Razorpay using razorpayService
+            const razorpayPayment = await razorpayService.fetchPayment(razorpayPaymentId);
+            
+            console.log('Fetched Razorpay payment details:', razorpayPayment);
+            console.log('Stored payment amount:', payment.amount);
 
-    // Verify payment amount matches order amount
-    if (paymentAmount !== expectedAmountInPaise) {
-      throw new BadRequestError(
-        `Payment amount mismatch. Expected ${expectedAmountInPaise} paise (₹${payment.amount}), ` +
-        `received ${paymentAmount} paise (₹${(paymentAmount/100).toFixed(2)})`
-      );
-    }
+            // 4. Verify payment status
+            if (razorpayPayment.status !== 'captured') {
+                throw new BadRequestError(`Payment not captured. Status: ${razorpayPayment.status}`);
+            }
 
-    // Rest of your method remains the same...
-    const updatedPayment = await this._paymentRepository.updatePayment(
-      payment._id.toString(),
-      {
-        razorpayPaymentId,
-        status: IPaymentStatus.CAPTURED,
-        notes: {
-          ...payment.notes,
-          razorpayPayment: {
-            id: razorpayPayment.id,
-            status: razorpayPayment.status,
-            method: razorpayPayment.method,
-            bank: razorpayPayment.bank,
-            wallet: razorpayPayment.wallet,
-            vpa: razorpayPayment.vpa,
-            captured: razorpayPayment.captured,
-            created_at: new Date(razorpayPayment.created_at * 1000)
-          }
+            // 5. Verify payment amount (both should be in paise)
+            const paymentAmount = Number(payment.amount);
+            if (isNaN(paymentAmount) || paymentAmount <= 0) {
+                throw new BadRequestError('Invalid payment amount in stored payment record');
+            }
+            const expectedAmountInPaise = Math.round(paymentAmount * 100);
+            const receivedAmountInPaise = razorpayPayment.amount;
+
+            console.log('Expected amount (paise):', expectedAmountInPaise);
+            console.log('Received amount (paise):', receivedAmountInPaise);
+
+            if (receivedAmountInPaise !== expectedAmountInPaise) {
+                throw new BadRequestError(
+                    `Payment amount mismatch. Expected ${expectedAmountInPaise} paise (₹${payment.amount}), ` +
+                    `received ${receivedAmountInPaise} paise (₹)`
+                );
+            }
+
+            // 6. Update payment record
+            const updatedPayment = await this._paymentRepository.updatePayment(
+                payment._id.toString(),
+                {
+                    razorpayPaymentId,
+                    status: IPaymentStatus.CAPTURED,
+                    notes: {
+                        ...payment.notes,
+                        razorpayPayment: {
+                            id: razorpayPayment.id,
+                            status: razorpayPayment.status,
+                            method: razorpayPayment.method,
+                            bank: razorpayPayment.bank,
+                            wallet: razorpayPayment.wallet,
+                            vpa: razorpayPayment.vpa,
+                            captured: razorpayPayment.captured,
+                            amount: razorpayPayment.amount,
+                            currency: razorpayPayment.currency,
+                            created_at: new Date(razorpayPayment.created_at * 1000)
+                        }
+                    }
+                }
+            );
+
+            // 7. Update order status
+            await orderService.updateOrderStatus(
+                payment.orderId.toString(),
+                IOrderStatus.PROCESSING
+            );
+
+            // 8. Get order details
+            const orderDetails = await this._orderRepository.getOrderById(
+                payment.orderId.toString()
+            );
+            if (!orderDetails) throw new InternalServerError('Order not found');
+
+            // 9. Get user details
+            const user = await this._userRepository.getUserById(
+                payment.user.toString()
+            );
+            if (!user) throw new NotFoundError('User not found');
+
+            // 10. Prepare email data
+            const emailData = {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                orderNumber: orderDetails.orderNumber,
+                orderDate: new Date(orderDetails.createdAt).toLocaleDateString('en-IN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }),
+                paymentDetails: {
+                    method: razorpayPayment.method,
+                    amount: orderDetails.total,
+                    transactionId: razorpayPaymentId
+                },
+                items: orderDetails.items.map(item => ({
+                    productName: item.productName,
+                    productCode: item.productCode,
+                    quantity: item.quantity,
+                    size: item.size?.toUpperCase() || 'N/A',
+                    priceAtPurchase: item.priceAtPurchase,
+                    itemTotal: item.itemTotal
+                })),
+                pricing: {
+                    subtotal: orderDetails.subtotal,
+                    totalDiscountAmount: orderDetails.totalDiscountAmount || 0,
+                    shippingCharge: orderDetails.shippingCharge,
+                    taxAmount: orderDetails.taxAmount,
+                    total: orderDetails.total
+                }
+            };
+
+            // 11. Send confirmation email
+            await mailService.sendEmail(
+                user.email,
+                'order-confirmation-email.ejs',
+                emailData,
+                `Order Confirmation - ${orderDetails.orderNumber}`
+            );
+
+            // 12. Clear cart
+            await cartService.clearCartItems(payment.user.toString());
+
+            return updatedPayment;
+        } catch (error) {
+            console.error('Payment processing error:', error);
+            throw error;
         }
-      }
-    );
-
-      // Update order status
-      await orderService.updateOrderStatus(
-        payment.orderId.toString(),
-        IOrderStatus.PROCESSING
-      );
-
-      // Get order details
-      const orderDetails = await this._orderRepository.getOrderById(
-        payment.orderId.toString()
-      );
-      if (!orderDetails) throw new InternalServerError('Order not found');
-
-      // Get user details
-      const user = await this._userRepository.getUserById(
-        payment.user.toString()
-      );
-      if (!user) throw new NotFoundError('User not found');
-
-      // Prepare email data
-      const emailData = {
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        orderNumber: orderDetails.orderNumber,
-        orderDate: new Date(orderDetails.createdAt).toLocaleDateString('en-IN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }),
-        paymentDetails: {
-          method: razorpayPayment.method,
-          amount: orderDetails.total,
-          transactionId: razorpayPaymentId
-        },
-        items: orderDetails.items.map(item => ({
-          productName: item.productName,
-          productCode: item.productCode,
-          quantity: item.quantity,
-          size: item.size?.toUpperCase() || 'N/A',
-          priceAtPurchase: item.priceAtPurchase,
-          itemTotal: item.itemTotal
-        })),
-        pricing: {
-          subtotal: orderDetails.subtotal,
-          totalDiscountAmount: orderDetails.totalDiscountAmount || 0,
-          shippingCharge: orderDetails.shippingCharge,
-          taxAmount: orderDetails.taxAmount,
-          total: orderDetails.total
-        }
-      };
-
-      // Send confirmation email
-      await mailService.sendEmail(
-        user.email,
-        'order-confirmation-email.ejs',
-        emailData,
-        `Order Confirmation - ${orderDetails.orderNumber}`
-      );
-
-      // Clear cart
-      await cartService.clearCartItems(payment.user.toString());
-
-      return updatedPayment;
-    } catch (error) {
-      console.error('Payment processing error:', error);
-      throw error;
     }
-  }
 
     async handleFailedPayment(razorpayOrderId: string, razorpayPaymentId: string) {
         const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
@@ -231,8 +252,8 @@ class PaymentService {
 
         // Update payment status
         const updatedPayment = await this._paymentRepository.updatePayment(payment._id.toString(), {
-        razorpayPaymentId,
-        status: IPaymentStatus.FAILED
+            razorpayPaymentId,
+            status: IPaymentStatus.FAILED
         });
 
         // Update order status
@@ -273,33 +294,33 @@ class PaymentService {
 
   
 
-  // async verifyPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) {
-  //       try {
-  //           // Verify signature
-  //           const isValid = await razorpayService.verifyPaymentSignature(
-  //               razorpayOrderId, 
-  //               razorpayPaymentId, 
-  //               razorpaySignature
-  //           );
+  async verifyPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string) {
+        try {
+            // Verify signature
+            const isValid = await razorpayService.verifyPaymentSignature(
+                razorpayOrderId, 
+                razorpayPaymentId, 
+                razorpaySignature
+            );
 
-  //           if (!isValid) {
-  //               throw new BadRequestError('Invalid payment signature');
-  //           }
+            if (!isValid) {
+                throw new BadRequestError('Invalid payment signature');
+            }
 
-  //           // Fetch payment details from Razorpay
-  //           const razorpayPayment = await razorpayService.fetchPayment(razorpayPaymentId);
+            // Fetch payment details from Razorpay
+            const razorpayPayment = await razorpayService.fetchPayment(razorpayPaymentId);
             
-  //           // Process successful payment
-  //           return await this.handleSuccessfulPayment(
-  //               razorpayOrderId,
-  //               razorpayPaymentId,
-  //               razorpayPayment
-  //           );
-  //       } catch (error) {
-  //           console.error('Payment verification error:', error);
-  //           throw error;
-  //       }
-  //   }
+            // Process successful payment
+            return await this.handleSuccessfulPayment(
+                razorpayOrderId,
+                razorpayPaymentId,
+                razorpaySignature
+            );
+        } catch (error) {
+            console.error('Payment verification error:', error);
+            throw error;
+        }
+    }
 }
 
 export default new PaymentService(new PaymentRepository(), new UserRepository(), new OrderRepository());
