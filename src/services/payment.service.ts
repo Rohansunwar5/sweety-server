@@ -101,48 +101,60 @@ class PaymentService {
         };
     }
 
-   async handleSuccessfulPayment(
-    razorpayOrderId: string,
-    razorpayPaymentId: string,
-    razorpayPayment: RazorpayPaymentResponse
-  ) {
+   async handleSuccessfulPayment( razorpayOrderId: string, razorpayPaymentId: string,razorpayPayment: RazorpayPaymentResponse ) {
     try {
       const payment = await this._paymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
-      if (!payment) {
-        throw new NotFoundError('Payment not found');
-      }
+    if (!payment) {
+      throw new NotFoundError('Payment not found');
+    }
 
-      const paymentAmount = typeof razorpayPayment.amount === 'string' 
-        ? parseFloat(razorpayPayment.amount) 
-        : razorpayPayment.amount;
+    // Get amount from Razorpay response (could be in paise or rupees)
+    let paymentAmount = typeof razorpayPayment.amount === 'string' 
+      ? parseFloat(razorpayPayment.amount) 
+      : razorpayPayment.amount;
 
-      // Verify payment amount matches order amount
-      const expectedAmount = payment.amount * 100; // Convert to paise
-      if (paymentAmount !== expectedAmount) {
-        throw new BadRequestError('Payment amount mismatch');
-      }
+    // Debug logs - very important for troubleshooting
+    console.log('Razorpay payment amount:', paymentAmount);
+    console.log('Stored payment amount:', payment.amount);
+    console.log('Full Razorpay response:', razorpayPayment);
 
-      // Update payment status with additional details
-      const updatedPayment = await this._paymentRepository.updatePayment(
-        payment._id.toString(),
-        {
-          razorpayPaymentId,
-          status: IPaymentStatus.CAPTURED,
-          notes: {
-            ...payment.notes,
-            razorpayPayment: {
-              id: razorpayPayment.id,
-              status: razorpayPayment.status,
-              method: razorpayPayment.method,
-              bank: razorpayPayment.bank,
-              wallet: razorpayPayment.wallet,
-              vpa: razorpayPayment.vpa,
-              captured: razorpayPayment.captured,
-              created_at: new Date(razorpayPayment.created_at * 1000)
-            }
+    // Convert both amounts to paise for comparison
+    const expectedAmountInPaise = Math.round(payment.amount * 100);
+    
+    // Check if Razorpay amount is likely in rupees (amount < 100 when it should be 3799)
+    if (paymentAmount < 100) {
+      paymentAmount = Math.round(paymentAmount * 100); // Convert to paise
+    }
+
+    // Verify payment amount matches order amount
+    if (paymentAmount !== expectedAmountInPaise) {
+      throw new BadRequestError(
+        `Payment amount mismatch. Expected ${expectedAmountInPaise} paise (₹${payment.amount}), ` +
+        `received ${paymentAmount} paise (₹${(paymentAmount/100).toFixed(2)})`
+      );
+    }
+
+    // Rest of your method remains the same...
+    const updatedPayment = await this._paymentRepository.updatePayment(
+      payment._id.toString(),
+      {
+        razorpayPaymentId,
+        status: IPaymentStatus.CAPTURED,
+        notes: {
+          ...payment.notes,
+          razorpayPayment: {
+            id: razorpayPayment.id,
+            status: razorpayPayment.status,
+            method: razorpayPayment.method,
+            bank: razorpayPayment.bank,
+            wallet: razorpayPayment.wallet,
+            vpa: razorpayPayment.vpa,
+            captured: razorpayPayment.captured,
+            created_at: new Date(razorpayPayment.created_at * 1000)
           }
         }
-      );
+      }
+    );
 
       // Update order status
       await orderService.updateOrderStatus(

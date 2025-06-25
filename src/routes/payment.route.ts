@@ -21,12 +21,10 @@ paymentRouter.post('/failure', asyncHandler(handleFailedPayment));
 paymentRouter.get('/details/:paymentId', isLoggedIn, asyncHandler(getPaymentDetails));
 paymentRouter.get('/order/:orderId', isLoggedIn, asyncHandler(getPaymentByOrderId));
 paymentRouter.get('/history', isAdminLoggedIn, asyncHandler(getPaymentHistory));
-paymentRouter.post(
-  '/webhook',
-  verifyWebhookSignature,
+paymentRouter.post('/webhook', verifyWebhookSignature,
   asyncHandler(async (req, res) => {
     const eventId = req.headers['x-razorpay-event-id'];
-    const event = req.headers['x-razorpay-event'] as string; // Add this line
+    const event = req.headers['x-razorpay-event'] as string; 
     
     if (!eventId || !event) {
       return res.status(400).json({ 
