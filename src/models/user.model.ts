@@ -71,7 +71,6 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 
 export interface IUser extends mongoose.Schema {
   _id: string;

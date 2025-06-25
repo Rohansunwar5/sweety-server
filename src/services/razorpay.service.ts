@@ -2,7 +2,6 @@ import Razorpay from 'razorpay';
 import config from '../config';
 import { BadRequestError } from '../errors/bad-request.error';
 import { InternalServerError } from '../errors/internal-server.error';
-import paymentService from './payment.service';
 
 interface RazorpayOrder {
     id: string;
