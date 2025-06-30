@@ -1,3 +1,4 @@
+import { BadRequestError } from "../errors/bad-request.error";
 import productModel, { ISizeStock } from "../models/product.model";
 
 export interface CreateProductParams {
@@ -173,5 +174,52 @@ export class ProductRepository {
             page,
             pages: Math.ceil(total / limit)
         };
+    }
+
+    async reduceProductStock(productId: string, size: string, quantity: number, session?: any) {
+        return this._model.updateOne(
+            { 
+                _id: productId,
+                "sizeStock.size": size,
+                "sizeStock.stock": { $gte: quantity } // Ensure sufficient stock
+            },
+            { $inc: { "sizeStock.$.stock": -quantity } },
+            { session }
+        );
+    }
+
+    async getProductStock(productId: string, size: string) {
+        const product = await this._model.findOne(
+            { _id: productId, "sizeStock.size": size },
+            { "sizeStock.$": 1 }
+        );
+        
+        return product?.sizeStock[0]?.stock || 0;
+    }
+
+    async getMultipleProductStocks(items: Array<{ productId: string; size: string }>) {
+        const stockPromises = items.map(item => 
+            this.getProductStock(item.productId, item.size)
+                .then(stock => ({
+                    productId: item.productId,
+                    size: item.size,
+                    stock
+                }))
+        );
+        
+        return Promise.all(stockPromises);
+    }
+
+    async checkProductSizeExists(productId: string, size: string) {
+        const product = await this._model.findOne({
+            _id: productId,
+            "sizeStock.size": size
+        });
+        
+        return !!product;
+    }
+
+    async startSession() {
+        return this._model.db.startSession();
     }
 }

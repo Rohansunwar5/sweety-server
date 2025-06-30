@@ -59,7 +59,7 @@ class OrderService {
 
     const total = parseFloat((subtotal - totalDiscountAmount + shippingCharge + taxAmount).toFixed(2));
     
-    // Prepare order items
+    // order items
     const orderItems = cartDetails.items.map(item => ({
       product: item.product._id,
       productName: item.product.name,

@@ -10,6 +10,7 @@ import { UserRepository } from "../repository/user.repository";
 import cartService from "./cart.service";
 import mailService from "./mail.service";
 import orderService from "./order.service";
+import productService from "./product.service";
 import razorpayService from "./razorpay.service";
 
 export interface InitiatePaymentParams {
@@ -188,6 +189,37 @@ class PaymentService {
                 payment.orderId.toString()
             );
             if (!orderDetails) throw new InternalServerError('Order not found');
+
+             try {
+            const orderItems = orderDetails.items
+                .filter(item => item.size) // Only process items with size
+                .map(item => ({
+                    productId: item.product.toString(), // Use 'product' field from order schema
+                    size: item.size!, // Non-null assertion since we filtered above
+                    quantity: item.quantity,
+                    productName: item.productName
+                }));
+
+            if (orderItems.length > 0) {
+                await productService.reduceStockForOrder(orderItems);
+            }
+        } catch (stockError: any) {
+            // Business logic: Handle stock reduction failures after successful payment
+            console.error('CRITICAL: Payment confirmed but stock reduction failed:', {
+                razorpayOrderId,
+                razorpayPaymentId,
+                orderId: payment.orderId.toString(),
+                error: stockError.message,
+                timestamp: new Date().toISOString()
+            });
+
+            // You might want to:
+            // 1. Send alert to admin
+            // 2. Create a manual intervention record
+            // 3. Mark order for manual review
+            // For now, we'll continue with the process but log the critical error
+        }
+
 
             // 9. Get user details
             const user = await this._userRepository.getUserById(

@@ -159,6 +159,125 @@ class ProductService {
     async getAvailableSizes(productId: string) {
         return this._productRepository.getAvailableSizes(productId);
     }
+
+     async reduceStockForOrder(orderItems: Array<{ productId: string; size: string; quantity: number; productName?: string }>) {
+        if (!orderItems || orderItems.length === 0) {
+            throw new BadRequestError('No order items provided for stock reduction');
+        }
+
+        for (const item of orderItems) {
+            if (!item.productId || !item.size || !item.quantity || item.quantity <= 0) {
+                throw new BadRequestError('Invalid order item data for stock reduction');
+            }
+        }
+
+        await this._validateStockAvailability(orderItems);
+
+        const session = await this._productRepository.startSession();
+        
+        try {
+            await session.withTransaction(async () => {
+                for (const item of orderItems) {
+                    const result = await this._productRepository.reduceProductStock(
+                        item.productId,
+                        item.size,
+                        item.quantity,
+                        session
+                    );
+
+                    if (result.matchedCount === 0) {
+                        throw new BadRequestError(
+                            `Product not found or insufficient stock: ${item.productName || item.productId} (${item.size})`
+                        );
+                    }
+
+                    if (result.modifiedCount === 0) {
+                        throw new BadRequestError(
+                            `Failed to reduce stock for: ${item.productName || item.productId} (${item.size})`
+                        );
+                    }
+                }
+            });
+
+            console.log('Stock reduced successfully for order items:', orderItems.map(item => ({
+                productId: item.productId,
+                size: item.size,
+                quantity: item.quantity
+            })));
+
+            return { success: true, message: 'Stock reduced successfully' };
+            
+        } catch (error) {
+            console.error('Error reducing stock for order:', error);
+            throw error;
+        } finally {
+            await session.endSession();
+        }
+    }
+
+    async validateStockForOrder(orderItems: Array<{productId: string; size: string; quantity: number; productName?: string }>) {
+
+        if (!orderItems || orderItems.length === 0) throw new BadRequestError('No order items provided for stock validation');
+
+        return this._validateStockAvailability(orderItems);
+    }
+
+    private async _validateStockAvailability(orderItems: Array<{ productId: string; size: string; quantity: number; productName?: string }>) {
+        const insufficientItems = [];
+
+        const stockItems = orderItems.map(item => ({
+            productId: item.productId,
+            size: item.size
+        }));
+        
+        const currentStocks = await this._productRepository.getMultipleProductStocks(stockItems);
+
+        for (let i = 0; i < orderItems.length; i++) {
+            const orderItem = orderItems[i];
+            const currentStock = currentStocks[i];
+
+            if (currentStock.stock === 0) {
+                const exists = await this._productRepository.checkProductSizeExists(
+                    orderItem.productId, 
+                    orderItem.size
+                );
+                
+                if (!exists) {
+                    insufficientItems.push({
+                        productId: orderItem.productId,
+                        productName: orderItem.productName,
+                        size: orderItem.size,
+                        requestedQuantity: orderItem.quantity,
+                        availableStock: 0,
+                        reason: 'Product or size not found'
+                    });
+                    continue;
+                }
+            }
+
+            if (currentStock.stock < orderItem.quantity) {
+                insufficientItems.push({
+                    productId: orderItem.productId,
+                    productName: orderItem.productName,
+                    size: orderItem.size,
+                    requestedQuantity: orderItem.quantity,
+                    availableStock: currentStock.stock,
+                    reason: 'Insufficient stock'
+                });
+            }
+        }
+
+        if (insufficientItems.length > 0) {
+            const errorMessage = insufficientItems.map(item => 
+                `${item.productName || item.productId} (${item.size}): ` +
+                `requested ${item.requestedQuantity}, available ${item.availableStock} - ${item.reason}`
+            ).join('; ');
+
+            throw new BadRequestError(`Stock validation failed: ${errorMessage}`);
+        }
+
+        return { success: true, message: 'Stock validation passed' };
+    }
 }
 
 export default new ProductService(new ProductRepository());
