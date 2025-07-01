@@ -256,21 +256,21 @@ class OrderService {
   private async reserveStock(cartItems: any[]) {
     // This would typically involve updating product stock
     // For now, we'll just log the reservation
-    console.log('Reserving stock for order items:', cartItems.map(item => ({
-      product: item.product._id,
-      quantity: item.quantity,
-      size: item.size
-    })));
+    // console.log('Reserving stock for order items:', cartItems.map(item => ({
+    //   product: item.product._id,
+    //   quantity: item.quantity,
+    //   size: item.size
+    // })));
   }
 
   private async restoreStock(orderItems: any[]) {
     // This would typically involve restoring product stock
     // For now, we'll just log the restoration
-    console.log('Restoring stock for order items:', orderItems.map(item => ({
-      product: item.product,
-      quantity: item.quantity,
-      size: item.size
-    })));
+    // console.log('Restoring stock for order items:', orderItems.map(item => ({
+    //   product: item.product,
+    //   quantity: item.quantity,
+    //   size: item.size
+    // })));
   }
 
   private validateStatusTransition(currentStatus: IOrderStatus, newStatus: IOrderStatus) {

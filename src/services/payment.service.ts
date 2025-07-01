@@ -128,8 +128,7 @@ class PaymentService {
             // 3. Fetch payment details from Razorpay using razorpayService
             const razorpayPayment = await razorpayService.fetchPayment(razorpayPaymentId);
             
-            console.log('Fetched Razorpay payment details:', razorpayPayment);
-            console.log('Stored payment amount:', payment.amount);
+           
 
             // 4. Verify payment status
             if (razorpayPayment.status !== 'captured') {
@@ -143,9 +142,6 @@ class PaymentService {
             }
             const expectedAmountInPaise = Math.round(paymentAmount * 100);
             const receivedAmountInPaise = razorpayPayment.amount;
-
-            console.log('Expected amount (paise):', expectedAmountInPaise);
-            console.log('Received amount (paise):', receivedAmountInPaise);
 
             if (receivedAmountInPaise !== expectedAmountInPaise) {
                 throw new BadRequestError(

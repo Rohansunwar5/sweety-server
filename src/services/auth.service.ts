@@ -72,9 +72,7 @@ class AuthService {
 
     if (existingUser) throw new BadRequestError('Email address already exists');
 
-    // get hashedPassword
     const hashedPassword = await this.hashPassword(password);
-
     const user = await this._userRepository.onBoardUser({
       firstName, lastName, email, password: hashedPassword, phone
     });

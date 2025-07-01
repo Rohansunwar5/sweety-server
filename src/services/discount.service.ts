@@ -180,15 +180,10 @@ class DiscountService {
 
     if (freeItemsCount === 0) return 0;
 
-    // Sort all unit prices (ascending) and pick cheapest freeItemsCount
     unitPrices.sort((a, b) => a - b);
     const discountAmount = unitPrices
         .slice(0, freeItemsCount)
         .reduce((acc, price) => acc + price, 0);
-
-
-    // console.log("dicountAmount: ",discountAmount);
-        
 
     return discountAmount;
     }

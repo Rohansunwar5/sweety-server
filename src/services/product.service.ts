@@ -198,13 +198,7 @@ class ProductService {
                     }
                 }
             });
-
-            console.log('Stock reduced successfully for order items:', orderItems.map(item => ({
-                productId: item.productId,
-                size: item.size,
-                quantity: item.quantity
-            })));
-
+            
             return { success: true, message: 'Stock reduced successfully' };
             
         } catch (error) {
