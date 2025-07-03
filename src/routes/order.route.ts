@@ -1,7 +1,8 @@
 import { Router } from "express";
 import isLoggedIn from "../middlewares/isLoggedIn.middleware";
 import { asyncHandler } from "../utils/asynchandler";
-import { cancelOrder, createOrder, getOrderStats, getUserOrders, returnOrder, searchOrders, updateOrderStatus } from "../controllers/order.controller";
+import { cancelOrder, createOrder, getAllOrders, getOrderStats, getUserOrders, returnOrder, searchOrders, updateOrderStatus } from "../controllers/order.controller";
+import isAdminLoggedIn from "../middlewares/isAdminLoggedIn.middleware";
 
 
 const orderRouter = Router();
@@ -17,6 +18,7 @@ orderRouter.post('/:id/cancel', isLoggedIn, asyncHandler(cancelOrder));
 orderRouter.post('/:id/return', isLoggedIn, asyncHandler(returnOrder));
 
 // Admin routes
-orderRouter.patch('/:id/status', isLoggedIn, asyncHandler(updateOrderStatus));
+orderRouter.patch('/:id/status',isAdminLoggedIn, asyncHandler(updateOrderStatus));
+orderRouter.get('/all-orders',isAdminLoggedIn, asyncHandler(getAllOrders));
 
 export default orderRouter;

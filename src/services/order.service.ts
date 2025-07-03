@@ -6,6 +6,16 @@ import { IOrderStatus } from "../models/order.model";
 import cartService from "./cart.service";
 import productService from "./product.service";
 
+export interface GetAllOrdersOptions {
+    page?: number;
+    limit?: number;
+    status?: IOrderStatus;
+    sortBy?: string;
+    startDate?: Date;
+    endDate?: Date;
+    searchTerm?: string;
+}
+
 export interface CreateOrderInput {
   userId: string;
   shippingAddress: {
@@ -321,6 +331,34 @@ class OrderService {
         break;
     }
   }
+
+  async getAllOrders(options: GetAllOrdersOptions = {}) {
+    // Set defaults if not provided
+    const { 
+        page = 1, 
+        limit = 10, 
+        status, 
+        sortBy = '-createdAt',
+        startDate,
+        endDate,
+        searchTerm
+    } = options;
+
+    // Validate parameters
+    if (page < 1) throw new BadRequestError('Page must be greater than 0');
+    if (limit < 1 || limit > 100) throw new BadRequestError('Limit must be between 1 and 100');
+
+    // Delegate to repository
+    return this._orderRepository.getAllOrders({
+        page,
+        limit,
+        status,
+        sortBy,
+        startDate,
+        endDate,
+        searchTerm
+    });
+}
 }
 
 export default new OrderService(new OrderRepository());

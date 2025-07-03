@@ -94,3 +94,21 @@ export const getOrderStats = async (req: Request, res: Response, next: NextFunct
 
     next(response);
 }
+
+export const getAllOrders = async (req: Request, res: Response, next: NextFunction) => {
+    // Parse query parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const status = req.query.status as IOrderStatus | undefined;
+    const sortBy = req.query.sortBy as string || '-createdAt'; // Default: newest first
+    
+    // Pass parameters to service layer
+    const response = await orderService.getAllOrders({
+        page,
+        limit,
+        status,
+        sortBy
+    });
+
+    next(response);
+};

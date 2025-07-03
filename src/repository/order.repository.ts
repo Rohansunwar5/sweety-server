@@ -1,6 +1,17 @@
 import mongoose from "mongoose";
 import orderModel, { IOrder, IOrderStatus } from "../models/order.model";
 
+
+export interface GetAllOrdersParams {
+    page: number;
+    limit: number;
+    status?: IOrderStatus;
+    sortBy?: string;
+    startDate?: Date;
+    endDate?: Date;
+    searchTerm?: string;
+}
+
 export interface CreateOrderParams {
   orderNumber: string;
   user: string;
@@ -235,5 +246,60 @@ export class OrderRepository {
         { new: true }
         );
     }
+
+    async getAllOrders(params: GetAllOrdersParams) {
+    const { 
+        page, 
+        limit, 
+        status, 
+        sortBy = '-createdAt',
+        startDate,
+        endDate,
+        searchTerm
+    } = params;
+
+    const skip = (page - 1) * limit;
+    const filter: any = {};
+
+    // Status filter
+    if (status) {
+        filter.status = status;
+    }
+
+    // Date range filter
+    if (startDate || endDate) {
+        filter.createdAt = {};
+        if (startDate) filter.createdAt.$gte = startDate;
+        if (endDate) filter.createdAt.$lte = endDate;
+    }
+
+    // Search filter
+    if (searchTerm) {
+        filter.$or = [
+            { orderNumber: { $regex: searchTerm, $options: 'i' } },
+            { 'items.productName': { $regex: searchTerm, $options: 'i' } },
+            { 'items.productCode': { $regex: searchTerm, $options: 'i' } },
+            { 'shippingAddress.name': { $regex: searchTerm, $options: 'i' } }
+        ];
+    }
+
+    const [orders, total] = await Promise.all([
+        this._model
+            .find(filter)
+            .sort(sortBy)
+            .skip(skip)
+            .limit(limit)
+            .populate('user', 'name email'), // Optional: include user details
+        this._model.countDocuments(filter)
+    ]);
+
+    return {
+        orders,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit
+    };
+}
     
 }
