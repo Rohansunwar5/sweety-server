@@ -34,6 +34,14 @@ export interface UpdateDiscountParams {
   isActive?: boolean;
 }
 
+export interface GetAllDiscountsParams {
+  page: number;
+  limit: number;
+  isActive?: boolean;
+  discountType?: string;
+  searchTerm?: string;
+}
+
 export interface ApplyDiscountParams {
   code: string;
   productIds: string[];
@@ -81,6 +89,51 @@ export class DiscountRepository {
         _id: plainDiscount._id.toString() // Explicitly convert to string
     };
     }
+
+    async getAllDiscounts(params: GetAllDiscountsParams) {
+    const { 
+        page, 
+        limit, 
+        isActive, 
+        discountType,
+        searchTerm
+    } = params;
+
+    const skip = (page - 1) * limit;
+    const filter: any = {};
+
+    if (typeof isActive === 'boolean') {
+        filter.isActive = isActive;
+    }
+
+    if (discountType) {
+        filter.discountType = discountType;
+    }
+
+    if (searchTerm) {
+        filter.$or = [
+            { code: { $regex: searchTerm, $options: 'i' } },
+            { type: { $regex: searchTerm, $options: 'i' } }
+        ];
+    }
+
+    const [discounts, total] = await Promise.all([
+        this._model
+            .find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit),
+        this._model.countDocuments(filter)
+    ]);
+
+    return {
+        discounts,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        limit
+    };
+}
 
     async incrementUsage(code: string) {
         return this._model.findOneAndUpdate(

@@ -41,3 +41,21 @@ export const applyDiscountToCart = async (req: Request, res: Response, next: Nex
   const response = await discountService.applyDiscount(params);
   next(response);
 };
+
+export const getAllDiscounts = async (req: Request, res: Response, next: NextFunction) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 10;
+  const isActive = req.query.isActive as string | undefined;
+  const discountType = req.query.discountType as string | undefined;
+  const searchTerm = req.query.searchTerm as string | undefined;
+  
+  const response = await discountService.getAllDiscounts({
+      page,
+      limit,
+      isActive: isActive ? isActive === 'true' : undefined,
+      discountType,
+      searchTerm
+  });
+
+  next(response);
+};

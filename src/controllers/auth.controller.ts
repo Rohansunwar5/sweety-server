@@ -23,12 +23,27 @@ export const profile = async (req: Request, res: Response, next: NextFunction) =
 };
 
 export const updateProfile = async (req: Request, res: Response, next: NextFunction) => {
-  const { _id } = req.user;
-  const { firstName, lastName, email, phone, img, addresses } = req.body;
-  const response = await authService.updateProfile({ firstName, lastName, email, phone, _id, img, addresses 
-});
+  console.log('[AuthController] updateProfile - Request received:', {
+    user: req.user, // Log the user from middleware
+    body: req.body,
+    headers: req.headers,
+  });
 
-  next(response);
+  try {
+    const { _id } = req.user;
+    const { firstName, lastName, email, phone,  addresses } = req.body;
+
+    console.log('[AuthController] updateProfile - Calling authService.updateProfile');
+    const response = await authService.updateProfile({ 
+      firstName, lastName, email, phone, _id, addresses 
+    });
+
+    console.log('[AuthController] updateProfile - Service response:', response);
+    next(response);
+  } catch (error) {
+    console.error('[AuthController] updateProfile - Error:', error);
+    next(error);
+  }
 };
 
 export const googleSignIn = async (req: Request, res: Response, next: NextFunction) => {
@@ -37,3 +52,11 @@ export const googleSignIn = async (req: Request, res: Response, next: NextFuncti
 
   next(response);
 }
+
+export const sendInfluencerEmail = async (req: Request, res: Response, next: NextFunction) => {
+  const { influencerName, email, youtubePageName, instagramPageName, subscribers, followers } = req.body;
+
+  const response = await authService.sendInfluencerEmail({ influencerName, email, youtubePageName, instagramPageName, subscribers, followers });
+
+  next(response);
+};

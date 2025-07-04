@@ -40,7 +40,6 @@ async updateUser(params: {
   email?: string;
   phone?: string;
   _id: string;
-  img?: string;
   addresses?: Array<{
     name?: string;
     addressLine1?: string;
@@ -58,7 +57,6 @@ async updateUser(params: {
     email,
     phone,
     _id,
-    img,
     addresses,
   } = params;
 
@@ -69,7 +67,6 @@ async updateUser(params: {
       lastName,
       email,
       phone,
-      img,
       addresses,
     },
     { new: true }

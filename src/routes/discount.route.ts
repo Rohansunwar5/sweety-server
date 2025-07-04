@@ -4,7 +4,8 @@ import {
   createDiscount,
   updateDiscount,
   getDiscountByCode,
-  applyDiscountToCart
+  applyDiscountToCart,
+  getAllDiscounts
 } from '../controllers/discount.controller';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 import isAdminLoggedIn from '../middlewares/isAdminLoggedIn.middleware';
@@ -18,5 +19,7 @@ discountRouter.patch('/:id', isAdminLoggedIn, asyncHandler(updateDiscount));
 // Public routes
 discountRouter.get('/code/:code', asyncHandler(getDiscountByCode));
 discountRouter.post('/apply', isLoggedIn,asyncHandler(applyDiscountToCart));
+// Add this with other admin routes
+discountRouter.get('/admin/all', isAdminLoggedIn, asyncHandler(getAllDiscounts));
 
 export default discountRouter;

@@ -37,13 +37,14 @@ const getAuthMiddlewareByJWTSecret = (jwtSecret: string) => async (
         throw new UnauthorizedError('Session Expired!');
       }
     }
-
+    
     req.user = {
       _id,
     };
     next();
   } catch (error) {
-    next();
+     console.error('[verify-token] Error:', error);
+     next(new UnauthorizedError('Invalid or expired token'));  
   }
 };
 export default getAuthMiddlewareByJWTSecret;

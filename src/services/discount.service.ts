@@ -16,6 +16,14 @@ export interface DiscountCalculationResult {
     };
 }
 
+export interface GetAllDiscountsOptions {
+    page?: number;
+    limit?: number;
+    isActive?: boolean;
+    discountType?: string;
+    searchTerm?: string;
+}
+
 class DiscountService {
     constructor(private readonly _discountRepository: DiscountRepository) {}
 
@@ -186,6 +194,27 @@ class DiscountService {
         .reduce((acc, price) => acc + price, 0);
 
     return discountAmount;
+    }
+    async getAllDiscounts(options: GetAllDiscountsOptions = {}) {
+        const { 
+            page = 1, 
+            limit = 10, 
+            isActive, 
+            discountType,
+            searchTerm
+        } = options;
+
+        // Validate parameters
+        if (page < 1) throw new BadRequestError('Page must be greater than 0');
+        if (limit < 1 || limit > 100) throw new BadRequestError('Limit must be between 1 and 100');
+
+        return this._discountRepository.getAllDiscounts({
+            page,
+            limit,
+            isActive,
+            discountType,
+            searchTerm
+        });
     }
 }
 

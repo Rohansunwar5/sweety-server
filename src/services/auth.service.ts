@@ -109,16 +109,12 @@ class AuthService {
   }
 
   async profile(userId: string) {
-    const cached = await profileCacheManager.get({ userId });
-    if (!cached) {
-      const user = await this._userRepository.getUserById(userId);
-      if (!user) throw new NotFoundError('User not found');
+    const user = await this._userRepository.getUserById(userId);
+    if (!user) throw new NotFoundError('User not found');
 
-      // set cache;
-      await profileCacheManager.set({ userId }, user);
-      return user;
-    }
-    return cached;
+    // set cache;
+    // await profileCacheManager.set({ userId }, user);
+    return user;
   }
 
   async updateProfile(params: {
@@ -127,7 +123,6 @@ class AuthService {
   email?: string;
   phone?: string;
   _id: string;
-  img?: string;
   addresses?: Array<{
     name?: string;
     addressLine1?: string;
@@ -139,7 +134,7 @@ class AuthService {
     isDefault?: boolean;
   }>;
 }) {
-  const { firstName, lastName, email, phone, _id, img, addresses,
+  const { firstName, lastName, email, phone, _id, addresses,
   } = params;
 
     const user = await this._userRepository.updateUser({
@@ -148,7 +143,6 @@ class AuthService {
       email,
       phone,
       _id,
-      img,
       addresses,
     });
 
@@ -240,6 +234,37 @@ class AuthService {
   private async generateRandomPassword() {
     return bcrypt.hash(Math.random().toString(36).slice(2), 10);
   }
+
+  async sendInfluencerEmail(params: {
+  influencerName: string;
+  email: string;
+  youtubePageName: string;
+  instagramPageName: string;
+  subscribers: number;
+  followers: number;
+}) {
+  try {
+    await mailService.sendEmail(
+      'caroal.official06@gmail.com', // Or your recipient email
+      'influencer-email.ejs',
+      {
+        influencerName: params.influencerName,
+        email: params.email,
+        youtubePageName: params.youtubePageName,
+        instagramPageName: params.instagramPageName,
+        subscribers: params.subscribers,
+        followers: params.followers,
+        date: new Date().toLocaleDateString()
+      },
+      "New Influencer Collaboration Request"
+    );
+
+    return { success: true, message: 'Email sent successfully' };
+  } catch (error) {
+    console.error('Failed to send influencer email:', error);
+    throw new InternalServerError('Failed to send email');
+  }
+}
   
 }
 
