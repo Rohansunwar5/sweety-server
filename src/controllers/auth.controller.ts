@@ -60,3 +60,10 @@ export const sendInfluencerEmail = async (req: Request, res: Response, next: Nex
 
   next(response);
 };
+
+export const getUserById = async (req:Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const response = await authService.getUserById(id);
+
+  next(response);
+}

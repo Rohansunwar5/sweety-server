@@ -31,7 +31,7 @@ export class UserRepository {
   });
 }
   async getUserById(id: string) {
-    return this._model.findById(id).select('img _id  firstName lastName email phone addresses createdAt updatedAt wishlist cart __v');
+    return this._model.findById(id).select(' _id  firstName lastName email phone addresses createdAt updatedAt __v');
   }
 
 async updateUser(params: {

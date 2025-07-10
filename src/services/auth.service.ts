@@ -209,6 +209,12 @@ class AuthService {
     return user._id;
   }
 
+  async getUserById(id: string) {
+    const user = await this._userRepository.getUserById(id);
+
+    return user
+  }
+
   async googleLogin(code: string) {
     const { tokens } = await googleAuthClient.getToken({
       code,
@@ -245,7 +251,7 @@ class AuthService {
 }) {
   try {
     await mailService.sendEmail(
-      'caroal.official06@gmail.com', // Or your recipient email
+      'caroal.official06@gmail.com',
       'influencer-email.ejs',
       {
         influencerName: params.influencerName,

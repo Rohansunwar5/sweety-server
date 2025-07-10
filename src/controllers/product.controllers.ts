@@ -12,8 +12,32 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
 
 export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;
-    const { name, code, category, sizeStock, sizeChart, price, originalPrice, description, isActive, tags, existingImages } = req.body;
-    const response =  await productService.updateProduct(id, { name, code, category, sizeStock: JSON.parse(sizeStock), sizeChart, price: Number(price), originalPrice: Number(originalPrice), description, isActive: JSON.parse(isActive), tags: JSON.parse(tags), existingImages: JSON.parse(existingImages),files: req.files as Express.Multer.File[]});
+    const { 
+        name, 
+        code, 
+        category, 
+        sizeStock, 
+        sizeChart, 
+        price, 
+        originalPrice, 
+        description, 
+        isActive, 
+        tags,  
+    } = req.body;
+
+    const response = await productService.updateProduct(id, { 
+        name,
+        code,
+        category,
+        sizeStock: sizeStock ? JSON.parse(sizeStock) : undefined,
+        sizeChart,
+        price: price ? Number(price) : undefined,
+        originalPrice: originalPrice ? Number(originalPrice) : undefined,
+        description,
+        isActive: isActive !== undefined ? JSON.parse(isActive) : undefined,
+        tags: tags ? JSON.parse(tags) : undefined,
+        files: req.files as Express.Multer.File[]
+    });
 
     next(response);
 }

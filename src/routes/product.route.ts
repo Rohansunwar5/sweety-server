@@ -9,7 +9,7 @@ const productRouter = Router();
 
 productRouter.post('/create', isAdminLoggedIn, uploadProductImages, productValidator, asyncHandler(createProduct));
 productRouter.get('/search', searchProductValidator, asyncHandler(searchProducts));
-productRouter.patch('/update/:id', isAdminLoggedIn, updateProductValidator, asyncHandler(updateProduct));
+productRouter.patch('/update/:id', isAdminLoggedIn, uploadProductImages, asyncHandler(updateProduct));
 productRouter.get('/', asyncHandler(listProducts));
 productRouter.get('/:id', asyncHandler(getProductById));
 productRouter.get('/:productId/sizes', updateProductStockValidator, asyncHandler(getAvailableSizes));

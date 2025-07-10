@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { asyncHandler } from '../utils/asynchandler';
-import { genericLogin, googleSignIn, profile, sendInfluencerEmail, signup, updateProfile } from '../controllers/auth.controller';
+import { genericLogin, getUserById, googleSignIn, profile, sendInfluencerEmail, signup, updateProfile } from '../controllers/auth.controller';
 import { loginValidator,signupValidator} from '../middlewares/validators/auth.validator';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 
@@ -12,5 +12,6 @@ authRouter.get('/profile', isLoggedIn, asyncHandler(profile));
 authRouter.patch('/profile', isLoggedIn, asyncHandler(updateProfile));
 authRouter.post('/google', asyncHandler(googleSignIn));
 authRouter.post('/send-influencer-email', asyncHandler(sendInfluencerEmail));
+authRouter.get('/user/:id', asyncHandler(getUserById));
 
 export default authRouter;

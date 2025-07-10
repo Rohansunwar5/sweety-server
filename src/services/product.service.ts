@@ -42,37 +42,33 @@ class ProductService {
 
         return product;
     }
+    
+    // product.service.ts
+    async updateProduct(id: string, params: UpdateProductWithImagesParams) {
+        const product = await this._productRepository.getProductById(id);
+        if (!product) throw new NotFoundError('Product not found');
 
-    async updateProductStock(params: UpdateStockParams) {
-        const { productId, size, quantity } = params;
-        
-        if (!productId || !size || quantity === undefined) {
-            throw new BadRequestError('Missing required fields for stock update');
-        }
-
-        const updatedProduct = await this._productRepository.updateProductStock(params);
-        if (!updatedProduct) throw new NotFoundError('Product or size not found')
-
-        return updatedProduct;
-    }
-
-
-    async updateProduct(id: string, params: UpdateProductWithImagesParams | any) {
-         const product = await this._productRepository.getProductById(id);
-        if (!product) throw new NotFoundError('Product not found')
-
+        // Validate product code uniqueness if changed
         if (params.code && params.code !== product.code) {
             const existingProduct = await this._productRepository.getProductByCode(params.code);
-            if (existingProduct) throw new BadRequestError('Product with this code already exists')
+            if (existingProduct) throw new BadRequestError('Product with this code already exists');
         }
 
-        // Handle image uploads
-        const imageUrls = params.files || params.existingImages 
-            ? await this.handleImageUploads({
-                files: params.files,
-                existingImages: params.existingImages
-            })
-            : undefined;
+        
+        let imageUrls: string[] = product.images || [];
+        
+        if (params.files?.length) {
+            try {
+            
+                const uploadPromises = params.files.map((file: Express.Multer.File) => 
+                    uploadToCloudinary(file)
+                );
+                imageUrls = await Promise.all(uploadPromises);
+            } catch (error) {
+                throw new BadRequestError('Failed to upload product images');
+            }
+        }
+
 
         const updateParams: UpdateProductParams = {
             name: params.name,
@@ -88,11 +84,13 @@ class ProductService {
             tags: params.tags
         };
 
+        // Remove undefined fields
         Object.keys(updateParams).forEach(key => 
             updateParams[key as keyof UpdateProductParams] === undefined 
                 && delete updateParams[key as keyof UpdateProductParams]
         );
 
+        // Update product in database
         const updatedProduct = await this._productRepository.updateProduct(id, updateParams);
         if (!updatedProduct) {
             throw new InternalServerError('Failed to update product');
@@ -100,6 +98,21 @@ class ProductService {
 
         return updatedProduct;
     }
+
+    async updateProductStock(params: UpdateStockParams) {
+        const { productId, size, quantity } = params;
+        
+        if (!productId || !size || quantity === undefined) {
+            throw new BadRequestError('Missing required fields for stock update');
+        }
+
+        const updatedProduct = await this._productRepository.updateProductStock(params);
+        if (!updatedProduct) throw new NotFoundError('Product or size not found')
+
+        return updatedProduct;
+    }
+
+
 
      private async handleImageUploads(params: { 
         files?: Express.Multer.File[], 
