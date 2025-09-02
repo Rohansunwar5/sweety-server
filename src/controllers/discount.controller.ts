@@ -59,3 +59,30 @@ export const getAllDiscounts = async (req: Request, res: Response, next: NextFun
 
   next(response);
 };
+
+// Add to discount.controller.ts
+export const deleteDiscount = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const response = await discountService.deleteDiscount(id);
+    next(response);
+};
+
+export const getActiveDiscounts = async (req: Request, res: Response, next: NextFunction) => {
+    const type = req.query.type as string | undefined;
+    const response = await discountService.getActiveDiscounts(type);
+    next(response);
+};
+
+export const getDiscountStats = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const response = await discountService.getDiscountUsageStats(id);
+    next(response);
+};
+
+export const getExpiredDiscounts = async (req: Request, res: Response, next: NextFunction) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const response = await discountService.getExpiredDiscounts(page, limit);
+    next(response);
+};

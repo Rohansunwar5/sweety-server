@@ -2,7 +2,6 @@ import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 import { InternalServerError } from '../errors/internal-server.error';
 import config from '../config';
-import { BadRequestError } from '../errors/bad-request.error';
 
 cloudinary.config({
   cloud_name: config.CLOUDINARY_CLOUD_NAME,
@@ -15,7 +14,7 @@ export const uploadToCloudinary = (file: Express.Multer.File): Promise<string> =
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: 'ecommerce-products',
+        folder: 'sweety',
         resource_type: 'auto'
       },
       (error, result) => {

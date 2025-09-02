@@ -78,6 +78,9 @@ const discountSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        createdBy: {
+            type: mongoose.Types.ObjectId,
+        },
     }, { timestamps: true }
 )
 

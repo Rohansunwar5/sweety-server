@@ -41,6 +41,9 @@ const productSchema = new mongoose.Schema(
             type: mongoose.Types.ObjectId,
             required: true,
         },
+        subcategory: {
+            type: mongoose.Types.ObjectId,
+        },
         sizeStock: [sizeStockSchema],
         sizeChart: {
             type: String,
@@ -71,7 +74,7 @@ const productSchema = new mongoose.Schema(
                 type: mongoose.Types.ObjectId,
                 required: true,
             },
-             value: {
+            value: {
                 type: Number,
                 required: true,
                 min: 1,
@@ -93,7 +96,7 @@ const productSchema = new mongoose.Schema(
         tags: [{
             type: String,
             trim: true,
-        }]
+        }],
     }, { timestamps: true }
 );
 
@@ -111,6 +114,7 @@ export interface IProduct extends mongoose.Schema {
     name: string;
     code: string;
     category: mongoose.Types.ObjectId;
+    subcategory?: mongoose.Types.ObjectId;
     sizeStock: ISizeStock[];
     sizeChart?: string;
     price: number;

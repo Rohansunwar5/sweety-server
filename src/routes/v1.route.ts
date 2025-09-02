@@ -9,6 +9,7 @@ import discountRouter from './discount.route';
 import paymentRouter from './payment.route';
 import categoryRouter from './category.route';
 import adminRouter from './admin.route';
+import subcategoryRouter from './subcategory.route';
 
 const v1Router = Router();
 
@@ -20,6 +21,7 @@ v1Router.use('/product', productRouter);
 v1Router.use('/cart', cartRouter);
 v1Router.use('/order', orderRouter);
 v1Router.use('/category', categoryRouter);
+v1Router.use('/sub-category', subcategoryRouter);
 v1Router.use('/payments', paymentRouter);
 v1Router.use('/discount', discountRouter);
 

@@ -65,13 +65,65 @@ export class DiscountRepository {
     private _model = discountModel;
 
     async createDiscount(params: CreateDiscountParams) {
-        return this._model.create(params);
+      return this._model.create(params);
     }   
+
+    async deleteDiscount(id: string) {
+      return this._model.findByIdAndDelete(id);
+    }
 
     async updateDiscount(id: string, params: UpdateDiscountParams) {
       return this._model.findByIdAndUpdate(
           id, params, { new: true }
       )
+    }
+
+    async getActiveDiscounts(type?: IType) {
+      const filter: any = { 
+          isActive: true,
+          validFrom: { $lte: new Date() },
+          validUntil: { $gte: new Date() }
+      };
+      
+      if (type) {
+          filter.type = type;
+      }
+
+      return this._model.find(filter).sort({ createdAt: -1 });
+    }
+
+    async getExpiredDiscounts(page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
+        
+        const [discounts, total] = await Promise.all([
+            this._model
+                .find({ validUntil: { $lt: new Date() } })
+                .sort({ validUntil: -1 })
+                .skip(skip)
+                .limit(limit),
+            this._model.countDocuments({ validUntil: { $lt: new Date() } })
+        ]);
+
+        return {
+            discounts,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page
+        };
+    }
+
+    async getDiscountUsageStats(id: string) {
+        const discount = await this._model.findById(id);
+        if (!discount) return null;
+
+        return {
+            code: discount.code,
+            usedCount: discount.usedCount,
+            usageLimit: discount.usageLimit,
+            usagePercentage: discount.usageLimit 
+                ? Math.round((discount.usedCount / discount.usageLimit) * 100) 
+                : null
+        };
     }
 
     async getDiscountById(id: string) {

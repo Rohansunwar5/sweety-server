@@ -47,9 +47,6 @@ const userSchema = new mongoose.Schema(
         default: false,
       }
     }],
-    wishlist: [{
-      type: mongoose.Types.ObjectId,
-    }],
     password: {
       type: String,
       minLength: PASSWORD_MIN_LENGTH,
@@ -72,7 +69,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 });
 
-export interface IUser extends mongoose.Schema {
+export interface IUser extends mongoose.Document {
   _id: string;
   firstName: string;
   lastName: string;
@@ -92,7 +89,6 @@ export interface IUser extends mongoose.Schema {
     country: string;
     isDefault: boolean;
   }>;
-  wishlist?: mongoose.Types.ObjectId[];
   isGuest?: boolean;
 }
 

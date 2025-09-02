@@ -82,28 +82,28 @@ class AuthService {
     const accessToken = await this.generateJWTToken(user._id);
     if (!accessToken) throw new InternalServerError('Failed to generate accessToken');
 
-    await mailService.sendEmail(
-      email,
-      'welcome-email.ejs',
-      {
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        phone: phone
-      },
-      "Welcome to Caroal"
-    )
+    // await mailService.sendEmail(
+    //   email,
+    //   'welcome-email.ejs',
+    //   {
+    //     firstName: firstName,
+    //     lastName: lastName,
+    //     email: email,
+    //     phone: phone
+    //   },
+    //   "Welcome to Caroal"
+    // )
 
-    await whatsappService.sendWhatsAppTemplate(
-      phone, 
-      'welcome-message.ejs',
-      {
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        phone: phone
-      }
-    );
+    // await whatsappService.sendWhatsAppTemplate(
+    //   phone, 
+    //   'welcome-message.ejs',
+    //   {
+    //     firstName: firstName,
+    //     lastName: lastName,
+    //     email: email,
+    //     phone: phone
+    //   }
+    // );
 
     return { accessToken };
   }

@@ -40,9 +40,25 @@ const cartSchema = new mongoose.Schema(
             code: String,
             discountId: mongoose.Types.ObjectId,
             discountAmount: Number
+        },
+        sessionId: {
+            type: String,
+            sparse: true,
+        },
+        expiresAt: {
+            type: Date,
+            default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        isActive: {
+            type: Boolean,
+            default: true,
         }
     }, { timestamps : true }
 )
+
+cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+cartSchema.index({ sessionId: 1 });
+cartSchema.index({ user: 1, isActive: 1 });
 
 export interface ICartItem extends mongoose.Schema {
     _id: string;
@@ -65,6 +81,11 @@ export interface ICart extends mongoose.Schema {
         discountId: mongoose.Types.ObjectId;
         discountAmount: number;
     }
+    sessionId?: string;
+    expiresAt: Date;
+    isActive: boolean;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 export default mongoose.model<ICart>('Cart', cartSchema)

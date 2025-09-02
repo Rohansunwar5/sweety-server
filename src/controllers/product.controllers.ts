@@ -3,9 +3,9 @@ import productService from "../services/product.service";
 import { BadRequestError } from "../errors/bad-request.error";
 
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
-    const { name, code, category, sizeStock, price, originalPrice, description, sizeChart, tags } = req.body;
+    const { name, code, category, sizeStock, price, originalPrice, description, sizeChart, tags, subcategory } = req.body;
     
-    const response = await productService.createProduct({ name, code, category, sizeStock: JSON.parse(sizeStock), price: Number(price), originalPrice: Number(originalPrice), description, sizeChart, tags: JSON.parse(tags), files: req.files as Express.Multer.File[]});
+    const response = await productService.createProduct({ name, code, category, subcategory, sizeStock: JSON.parse(sizeStock), price: Number(price), originalPrice: Number(originalPrice), description, sizeChart, tags: JSON.parse(tags), files: req.files as Express.Multer.File[]});
 
     next(response);
 }
@@ -16,6 +16,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
         name, 
         code, 
         category, 
+        subcategory,
         sizeStock, 
         sizeChart, 
         price, 
@@ -29,6 +30,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
         name,
         code,
         category,
+        subcategory,
         sizeStock: sizeStock ? JSON.parse(sizeStock) : undefined,
         sizeChart,
         price: price ? Number(price) : undefined,
@@ -105,4 +107,13 @@ export const getAvailableSizes = async (req: Request, res: Response, next: NextF
     next(response);
 };
 
-
+export const getProductsBySubcategory = async (req: Request, res: Response, next: NextFunction) => {
+    const { subcategoryId } = req.params;
+    const { page = 1 , limit = 10 } = req.query
+    const response = await productService.getProductsBySubcategory(subcategoryId, {
+        page: Number(page),
+        limit: Number(limit)
+    });
+    
+    next(response);
+};

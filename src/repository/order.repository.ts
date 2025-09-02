@@ -80,7 +80,15 @@ export class OrderRepository {
     private _model = orderModel
 
     async createOrder(params: CreateOrderParams) {
-        return this._model.create(params);
+        try {
+            const order = await this._model.create(params);
+            return order;
+        } catch (error: any) {
+            if (error.code === 11000) { 
+                throw new Error(`Order number ${params.orderNumber} already exists`);
+            }
+            throw error;
+        }
     }
 
     async getOrderById(orderId: string) {

@@ -19,13 +19,28 @@ export const createOrder = async (req: Request, res: Response, next: NextFunctio
     next(response);
 }
 
-// export const getOrderById = async (req: Request, res: Response, next: NextFunction) => {
-//     const { id } = req.params;
-//     const userId = req.user?._id;
-//     const response = await orderService.getOrderByIdAndUser(id, userId);
+// Add this to order.controller.ts:
+export const getOrderById = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const userId = req.user?._id;
+    
+    const order = await orderService.getOrderById(id);
+    
+    // Verify order belongs to user (for non-admin routes)
+    if (order.user.toString() !== userId?.toString()) {
+        throw new BadRequestError('Order not found or access denied');
+    }
+    
+    next(order);
+};
 
-//     next(response);
-// }
+// Add admin version without user restriction:
+export const getOrderByIdAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    const { id } = req.params;
+    const response = await orderService.getOrderById(id);
+    next(response);
+};
+
 
 export const getUserOrders = async (req: Request, res: Response, next: NextFunction) => {
     const userId = req.user?._id;

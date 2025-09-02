@@ -1,12 +1,17 @@
 import { Router } from "express";
 import { asyncHandler } from "../utils/asynchandler";
-import { createCategory, getAllCategories } from "../controllers/category.controller";
+import { createCategory, deleteCategory, getAllCategories, getCategoriesWithPagination, getCategoryById, searchCategories, updateCategory } from "../controllers/category.controller";
 import isAdminLoggedIn from "../middlewares/isAdminLoggedIn.middleware";
 
 const categoryRouter = Router();
 
-categoryRouter.post('/create', isAdminLoggedIn, asyncHandler(createCategory));
-categoryRouter.get('/get-all-categories', isAdminLoggedIn, asyncHandler(getAllCategories));
+categoryRouter.get('/', asyncHandler(getAllCategories));
+categoryRouter.get('/paginated', asyncHandler(getCategoriesWithPagination));
+categoryRouter.get('/search', asyncHandler(searchCategories));
+categoryRouter.get('/:id', asyncHandler(getCategoryById));
 
+categoryRouter.post('/create', isAdminLoggedIn, asyncHandler(createCategory));
+categoryRouter.put('/:id', isAdminLoggedIn, asyncHandler(updateCategory));
+categoryRouter.delete('/:id', isAdminLoggedIn, asyncHandler(deleteCategory));
 
 export default categoryRouter;

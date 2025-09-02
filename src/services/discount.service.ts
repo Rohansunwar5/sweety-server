@@ -27,17 +27,41 @@ export interface GetAllDiscountsOptions {
 class DiscountService {
     constructor(private readonly _discountRepository: DiscountRepository) {}
 
+    // Update createDiscount in discount.service.ts
     async createDiscount(params: CreateDiscountParams) {
-        const exisitingDiscount = await this._discountRepository.getDiscountByCode(params.code);
-        if(exisitingDiscount) throw new BadRequestError(`Discount code already exisit`);
+        const existingDiscount = await this._discountRepository.getDiscountByCode(params.code);
+        if (existingDiscount) throw new BadRequestError('Discount code already exists');
 
-        if(new Date(params.validUntil) < new Date()) throw new BadRequestError('Invalid Date')
+        if (new Date(params.validUntil) <= new Date()) {
+            throw new BadRequestError('Valid until date must be in the future');
+        }
+
+        // Validate discount type specific fields
+        if (params.discountType === 'percentage') {
+            if (!params.value || params.value <= 0 || params.value > 100) {
+                throw new BadRequestError('Percentage value must be between 0 and 100');
+            }
+        } else if (params.discountType === 'fixed') {
+            if (!params.value || params.value <= 0) {
+                throw new BadRequestError('Fixed discount value must be greater than 0');
+            }
+        } else if (params.discountType === 'buyXgetY') {
+            if (!params.buyX || !params.getY || params.buyX <= 0 || params.getY <= 0) {
+                throw new BadRequestError('BuyX and GetY values must be greater than 0');
+            }
+        }
+
+        // Validate min purchase and max discount relationship
+        if (params.minPurchase && params.maxDiscount && params.minPurchase < params.maxDiscount) {
+            throw new BadRequestError('Minimum purchase amount should be greater than maximum discount');
+        }
 
         const discount = await this._discountRepository.createDiscount(params);
-        if(!discount) throw new InternalServerError('Failed to create discount');
+        if (!discount) throw new InternalServerError('Failed to create discount');
 
         return discount;
     }
+
 
     async incrementUsage(code: string) {
         const response = await this._discountRepository.incrementUsage(code);
@@ -67,41 +91,52 @@ class DiscountService {
         return discount;
     }
 
+    // Update applyDiscount in discount.service.ts
     async applyDiscount(params: ApplyDiscountParams): Promise<DiscountCalculationResult> {
         const { code, productIds, quantities, subtotal } = params;
-        const discount = await this.getDiscountByCode(code);  
         
-        this.validateDiscount(discount, subtotal);
+        try {
+            const discount = await this.getDiscountByCode(code);
+            this.validateDiscount(discount, subtotal);
 
-        let discountAmount = 0;
+            let discountAmount = 0;
 
-        switch(discount.discountType) {
-            case 'percentage':
-                discountAmount = this.calculatePercentageDiscount(discount, subtotal);
-                break;
-            case 'fixed':
-                discountAmount = this.calculateFixedDiscount(discount, subtotal);
-                break;
-            case 'buyXgetY':
-                discountAmount = await this.calculateBuyXGetYDiscount(discount, productIds, quantities);
-                break;
-        }
-
-        // Increment usage count
-        await this._discountRepository.incrementUsage(code);
-
-        return { 
-            discountAmount,
-            discountedTotal: subtotal - discountAmount,
-            appliedDiscount: {
-                code: discount.code,
-                type: discount.type,
-                discountType: discount.discountType,
-                value: discount.value,
-                discountId: discount._id,
+            switch(discount.discountType) {
+                case 'percentage':
+                    discountAmount = this.calculatePercentageDiscount(discount, subtotal);
+                    break;
+                case 'fixed':
+                    discountAmount = this.calculateFixedDiscount(discount, subtotal);
+                    break;
+                case 'buyXgetY':
+                    discountAmount = await this.calculateBuyXGetYDiscount(discount, productIds, quantities);
+                    break;
+                default:
+                    throw new BadRequestError(`Unsupported discount type: ${discount.discountType}`);
             }
-        };
-    } 
+
+            // Only increment usage if discount amount > 0
+            if (discountAmount > 0) {
+                await this._discountRepository.incrementUsage(code);
+            }
+
+            return { 
+                discountAmount: Math.round(discountAmount * 100) / 100, // Round to 2 decimal places
+                discountedTotal: Math.round((subtotal - discountAmount) * 100) / 100,
+                appliedDiscount: {
+                    code: discount.code,
+                    type: discount.type,
+                    discountType: discount.discountType,
+                    value: discount.value,
+                    discountId: discount._id,
+                }
+            };
+        } catch (error) {
+            // Don't increment usage count if validation fails
+            throw error;
+        }
+    }
+
 
     private validateDiscount(discount: any, subtotal: number) {
         const now = new Date();
@@ -141,60 +176,91 @@ class DiscountService {
         return Math.min(discount.value, subtotal);
     }
 
-    private async calculateBuyXGetYDiscount(
-    discount: any,
-    productIds: string[],
-    quantities: Record<string, number>
-): Promise<number> {
-    if (!discount.buyX || !discount.getY) {
-        throw new BadRequestError('Invalid buyXgetY discount configuration');
-    }
+    private async calculateBuyXGetYDiscount( discount: any, productIds: string[], quantities: Record<string, number>): Promise<number> {
+        if (!discount.buyX || !discount.getY) {
+            throw new BadRequestError('Invalid buyXgetY discount configuration');
+        }
 
-    const products = await Promise.all(
-        productIds.map(id => productService.getProductById(id))
-    );
-
-    const eligibleProducts = products.filter(product => {
-        if (!product) return false;
-
-        const isExcluded = discount.excludedProducts?.some(
-            (excludedId: any) => excludedId.toString() === product._id.toString()
+        const products = await Promise.all(
+            productIds.map(id => productService.getProductById(id))
         );
 
-        if (isExcluded) return false;
+        // Get eligible products with their cart quantities
+        const eligibleItems: Array<{product: any, quantity: number}> = [];
+        
+        for (const product of products) {
+            if (!product) continue;
 
-        if (discount.applicableCategories?.length) {
-            const isApplicable = discount.applicableCategories.some(
-                (categoryId: any) => categoryId.toString() === product.category.toString()
+            // Check if product is excluded
+            const isExcluded = discount.excludedProducts?.some(
+                (excludedId: any) => excludedId.toString() === product._id.toString()
             );
-            if (!isApplicable) return false;
+            if (isExcluded) continue;
+
+            // Check if product belongs to applicable categories (if specified)
+            if (discount.applicableCategories?.length > 0) {
+                const isApplicable = discount.applicableCategories.some(
+                    (categoryId: any) => categoryId.toString() === product.category.toString()
+                );
+                if (!isApplicable) continue;
+            }
+
+            const cartQuantity = quantities[product._id.toString()] || 0;
+            if (cartQuantity > 0) {
+                eligibleItems.push({ product, quantity: cartQuantity });
+            }
         }
 
-        return true;
-    });
-
-    // Flatten eligible unit prices
-    const unitPrices: number[] = [];
-    for (const product of eligibleProducts) {
-        const qty = quantities[product._id.toString()] || 0;
-        for (let i = 0; i < qty; i++) {
-            unitPrices.push(product.price);
+        if (eligibleItems.length === 0) {
+            return 0;
         }
+
+        // Create array of unit prices for all eligible items in cart
+        const unitPrices: number[] = [];
+        for (const item of eligibleItems) {
+            for (let i = 0; i < item.quantity; i++) {
+                unitPrices.push(item.product.price);
+            }
+        }
+
+        // Calculate total eligible items
+        const totalEligibleItems = unitPrices.length;
+        
+        // For Buy X Get Y: customer needs to buy X items to get Y items free
+        // Example: Buy 2 Get 1 - customer buys 2, gets 1 free (group of 3)
+        const itemsPerGroup = discount.buyX; // Items customer must buy
+        const freeItemsPerGroup = discount.getY; // Free items they get
+        
+        // Calculate how many complete groups we can form
+        const completeGroups = Math.floor(totalEligibleItems / (itemsPerGroup + freeItemsPerGroup));
+        
+        // If no complete groups, check if we have enough items to qualify for free items
+        let freeItemsCount = completeGroups * freeItemsPerGroup;
+        
+        // Handle partial groups - if customer has bought enough items but not a complete group
+        const remainingItems = totalEligibleItems - (completeGroups * (itemsPerGroup + freeItemsPerGroup));
+        if (remainingItems >= itemsPerGroup) {
+            // Customer has bought enough items in the partial group to get some free items
+            const additionalFreeItems = Math.min(freeItemsPerGroup, remainingItems - itemsPerGroup);
+            freeItemsCount += additionalFreeItems;
+        }
+
+        if (freeItemsCount === 0) {
+            return 0;
+        }
+
+        // Sort prices in ascending order to give discount on cheapest items
+        unitPrices.sort((a, b) => a - b);
+        
+        // Calculate discount amount for the cheapest free items
+        const discountAmount = unitPrices
+            .slice(0, freeItemsCount)
+            .reduce((acc, price) => acc + price, 0);
+
+        return Math.round(discountAmount * 100) / 100; // Round to 2 decimal places
     }
 
-    const groupSize = discount.buyX + discount.getY;
-    const totalGroups = Math.floor(unitPrices.length / groupSize);
-    const freeItemsCount = totalGroups * discount.getY;
 
-    if (freeItemsCount === 0) return 0;
-
-    unitPrices.sort((a, b) => a - b);
-    const discountAmount = unitPrices
-        .slice(0, freeItemsCount)
-        .reduce((acc, price) => acc + price, 0);
-
-    return discountAmount;
-    }
     async getAllDiscounts(options: GetAllDiscountsOptions = {}) {
         const { 
             page = 1, 
@@ -216,6 +282,36 @@ class DiscountService {
             searchTerm
         });
     }
+
+    async deleteDiscount(id: string) {
+        const discount = await this._discountRepository.getDiscountById(id);
+        if (!discount) throw new NotFoundError('Discount not found');
+
+        // Check if discount is currently being used
+        if (discount.usedCount > 0) {
+            throw new BadRequestError('Cannot delete discount that has been used');
+        }
+
+        const response = await this._discountRepository.deleteDiscount(id);
+        if (!response) throw new InternalServerError('Failed to delete discount');
+
+        return { message: 'Discount deleted successfully' };
+    }
+
+    async getActiveDiscounts(type?: string) {
+        return this._discountRepository.getActiveDiscounts(type as any);
+    }
+
+    async getExpiredDiscounts(page: number = 1, limit: number = 10) {
+        return this._discountRepository.getExpiredDiscounts(page, limit);
+    }
+
+    async getDiscountUsageStats(id: string) {
+        const stats = await this._discountRepository.getDiscountUsageStats(id);
+        if (!stats) throw new NotFoundError('Discount not found');
+        return stats;
+    }
+
 }
 
 

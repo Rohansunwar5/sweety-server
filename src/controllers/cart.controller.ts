@@ -72,3 +72,29 @@ export const mergeGuestCart = async (req: Request, res: Response, next: NextFunc
   next(updatedCart);
 }
 
+export const getGuestCart = async (req: Request, res: Response, next: NextFunction) => {
+  const { sessionId } = req.params;
+  const response = await cartService.getGuestCart(sessionId);
+  
+  next(response);
+};
+
+export const addItemToGuestCart = async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionId } = req.params;
+    const itemData: CartItemInput = req.body;
+    const response = await cartService.addItemToGuestCart(sessionId, itemData);
+
+    next(response);
+};
+
+export const validateCart = async (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.user?._id;
+    const { sessionId } = req.query;
+    
+    const response = await cartService.validateCartItems(
+        userId?.toString(), 
+        sessionId as string
+    );
+    
+    next(response);
+};

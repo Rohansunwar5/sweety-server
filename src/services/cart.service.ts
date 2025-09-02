@@ -1,4 +1,3 @@
-import { throws } from "assert";
 import { BadRequestError } from "../errors/bad-request.error";
 import { NotFoundError } from "../errors/not-found.error";
 import { ICart } from "../models/cart.model";
@@ -63,9 +62,11 @@ class CartService {
         const product = await productService.getProductById(item.product);
         
         if (!product) throw new NotFoundError('Product not found');
-        const sizeStock = product.sizeStock.find(s => s.size === item.size);
-        
+        if(!product.isActive) throw new BadRequestError('Product is not available for sale');
+
+        const sizeStock = product.sizeStock.find(s => s.size === item.size);        
         if (!sizeStock || sizeStock.stock < item.quantity) throw new BadRequestError('Insufficient stock for selected size');
+        
         const cart = await this.getCart(userId);
         const existingItem = cart.items.find(i => 
             i.product.toString() === item.product && 
@@ -73,10 +74,21 @@ class CartService {
         );
 
         let updatedCart;
+
         if (existingItem) {
-            updatedCart = await this.updateCartItem(userId, existingItem._id.toString(), { quantity: existingItem.quantity + item.quantity });
+           const totalQuantity = existingItem.quantity + item.quantity;
+
+           if(sizeStock.stock < totalQuantity) {
+            throw new BadRequestError(`Insufficient stock. Available: ${sizeStock.stock}, requested total: ${totalQuantity}`);
+           }
+
+           updatedCart = await this.updateCartItem(userId, existingItem._id.toString(), {
+            quantity: totalQuantity
+           });
         } else {
-            updatedCart = await this._cartRepository.addItemToCart(userId, { ...item, priceAtAddition: product.price });
+            updatedCart = await this._cartRepository.addItemToCart(userId, {
+                ...item,
+            })
         }
         
         if (!updatedCart) throw new NotFoundError('Failed to update cart');
@@ -246,42 +258,202 @@ class CartService {
     }
 
     async mergeCarts(userId: string, guestCartItems: CartItemInput[]) {
-    let userCart = await this._cartRepository.getCartByUserId(userId);
-    if(!userCart) {
-        userCart = await this._cartRepository.createCart(userId);
+        let userCart = await this._cartRepository.getCartByUserId(userId);
+        if (!userCart) {
+            userCart = await this._cartRepository.createCart(userId);
+        }
+
+        if (!guestCartItems || guestCartItems.length === 0) {
+            return userCart;
+        }
+
+        // Validate guest cart items before merging
+        const validatedItems = [];
+        for (const item of guestCartItems) {
+            try {
+                if (!item.product || !item.quantity || item.quantity <= 0) {
+                    console.warn(`Invalid guest cart item structure:`, item);
+                    continue;
+                }
+
+                const product = await productService.getProductById(item.product);
+                if (!product || !product.isActive) {
+                    console.warn(`Product not available: ${item.product}`);
+                    continue;
+                }
+
+                // Validate size requirement
+                if (product.sizeStock && product.sizeStock.length > 0 && !item.size) {
+                    console.warn(`Size required for product: ${item.product}`);
+                    continue;
+                }
+
+                const sizeStock = product.sizeStock.find(s => s.size === item.size);
+                if (!sizeStock || sizeStock.stock < item.quantity) {
+                    // Add with available stock if some is available
+                    if (sizeStock && sizeStock.stock > 0) {
+                        validatedItems.push({
+                            ...item,
+                            quantity: sizeStock.stock
+                        });
+                    }
+                    continue;
+                }
+
+                validatedItems.push({ ...item });
+            } catch (error) {
+                console.warn(`Error validating guest cart item ${item.product}:`, error);
+            }
+        }
+
+        // Merge items logic
+        const mergedMap = new Map<string, CartItemInput>();
+        const getKey = (item: { product: string, size?: string }) =>
+            `${item.product}_${item.size || ''}`;
+
+        // Add user cart items
+        for (const item of userCart.items || []) {
+            const cartItemData: CartItemInput = {
+                product: item.product.toString(),
+                quantity: item.quantity,
+                size: item.size,
+            };
+            mergedMap.set(getKey(cartItemData), cartItemData);
+        }
+
+        // Merge in validated guest cart items
+        for (const item of validatedItems) {
+            const key = getKey(item);
+            if (mergedMap.has(key)) {
+                const existing = mergedMap.get(key)!;
+                // Check stock availability for merged quantity
+                const product = await productService.getProductById(item.product);
+                const sizeStock = product?.sizeStock.find(s => s.size === item.size);
+                const maxQuantity = sizeStock?.stock || 0;
+                const newQuantity = Math.min(existing.quantity + item.quantity, maxQuantity);
+                
+                mergedMap.set(key, { ...existing, quantity: newQuantity });
+            } else {
+                mergedMap.set(key, { ...item });
+            }
+        }
+
+        const mergedItems = Array.from(mergedMap.values());
+        return this._cartRepository.replaceCartItems(userId, mergedItems);
     }
 
-    // Merge items 
-    const mergedMap = new Map<string, CartItemInput>();
-    const getKey = (item: { product: string, size?: string }) =>
-        `${item.product}_${item.size || ''}`;
 
-    // Add user cart items - convert ObjectId to string and handle document conversion
-    for (const item of userCart.items || []) {
-        const cartItemData: CartItemInput = {
-            product: item.product.toString(), // Convert ObjectId to string
-            quantity: item.quantity,
-            size: item.size,
-            priceAtAddition: 0 // You might want to store this in your schema or fetch from product
-        };
-        mergedMap.set(getKey(cartItemData), cartItemData);
+    async getGuestCart(sessionId: string) {
+        return this._cartRepository.getOrCreateGuestCart(sessionId);
     }
 
-    // Merge in guest cart items
-    for (const item of guestCartItems) {
-        const key = getKey(item);
-        if (mergedMap.has(key)) {
-            const existing = mergedMap.get(key)!;
-            mergedMap.set(key, { ...existing, quantity: existing.quantity + item.quantity });
+    async addItemToGuestCart(sessionId: string, item: CartItemInput) {
+        const product = await productService.getProductById(item.product);
+        if (!product) throw new NotFoundError('Product not found');
+        if (!product.isActive) throw new BadRequestError('Product is not available');
+        
+        // Validate size requirement
+        if (product.sizeStock && product.sizeStock.length > 0 && !item.size) {
+            throw new BadRequestError('Size selection is required for this product');
+        }
+        
+        const sizeStock = product.sizeStock.find(s => s.size === item.size);
+        if (!sizeStock || sizeStock.stock < item.quantity) {
+            throw new BadRequestError('Insufficient stock for selected size');
+        }
+
+        let cart = await this._cartRepository.getCartBySessionId(sessionId);
+        if (!cart) {
+            cart = await this._cartRepository.createGuestCart(sessionId);
+        }
+
+        const existingItem = cart.items.find(i => 
+            i.product.toString() === item.product && 
+            i.size === item.size
+        );
+
+        if (existingItem) {
+            const totalQuantity = existingItem.quantity + item.quantity;
+            
+            // Validate total quantity
+            if (sizeStock.stock < totalQuantity) {
+                throw new BadRequestError(`Insufficient stock. Available: ${sizeStock.stock}, requested total: ${totalQuantity}`);
+            }
+            
+            return this._cartRepository.updateCartItemBySessionId(
+                sessionId, 
+                existingItem._id.toString(), 
+                { quantity: totalQuantity }
+            );
         } else {
-            mergedMap.set(key, { ...item });
+            return this._cartRepository.addItemToCartBySessionId(sessionId, { ...item });
         }
     }
 
-    const mergedItems = Array.from(mergedMap.values());
+    async validateCartItems(userId?: string, sessionId?: string) {
+        const cart = userId 
+            ? await this.getCart(userId) 
+            : await this.getGuestCart(sessionId!);
+        
+        if (!cart.items.length) return { valid: true, issues: [] };
 
-    return this._cartRepository.replaceCartItems(userId, mergedItems);
-}
+        const issues = [];
+        const validItems = [];
+
+        for (const item of cart.items) {
+            try {
+                const product = await productService.getProductById(item.product.toString());
+                if (!product || !product.isActive) {
+                    issues.push({
+                        itemId: item._id,
+                        productId: item.product,
+                        issue: 'Product no longer available'
+                    });
+                    continue;
+                }
+
+                const sizeStock = product.sizeStock.find(s => s.size === item.size);
+                if (!sizeStock) {
+                    issues.push({
+                        itemId: item._id,
+                        productId: item.product,
+                        issue: 'Size no longer available'
+                    });
+                    continue;
+                }
+
+                if (sizeStock.stock < item.quantity) {
+                    issues.push({
+                        itemId: item._id,
+                        productId: item.product,
+                        issue: `Only ${sizeStock.stock} items available, but ${item.quantity} requested`
+                    });
+                    // Optionally update quantity to available stock
+                    validItems.push({
+                        ...item,
+                        quantity: Math.min(item.quantity, sizeStock.stock)
+                    });
+                    continue;
+                }
+
+                validItems.push(item);
+            } catch (error) {
+                issues.push({
+                    itemId: item._id,
+                    productId: item.product,
+                    issue: 'Error validating product'
+                });
+            }
+        }
+
+        return {
+            valid: issues.length === 0,
+            issues,
+            validItems,
+            needsUpdate: issues.length > 0
+        };
+    }
+
 }
 
 export default new CartService(new CartRepository());

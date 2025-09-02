@@ -1,10 +1,11 @@
-import { BadRequestError } from "../errors/bad-request.error";
+import mongoose from "mongoose";
 import productModel, { ISizeStock } from "../models/product.model";
 
 export interface CreateProductParams {
     name: string;
     code: string;
     category: string;
+    subcategory?: string;
     sizeStock: ISizeStock[];
     price: number;
     originalPrice?: number;
@@ -24,6 +25,7 @@ export interface UpdateProductParams {
     name?: string;
     code?: string;
     category?: string;
+    subcategory?: string;
     sizeStock?: ISizeStock[];
     price?: number;
     originalPrice?: number;
@@ -32,6 +34,12 @@ export interface UpdateProductParams {
     sizeChart?: string;
     isActive?: boolean;
     tags?: string[];
+    ratings?: Array< {
+        userId: mongoose.Types.ObjectId;
+        value: number;
+        review?: string;
+        createdAt: Date;
+    }>;
 }
 
 export interface UpdateProductWithImagesParams extends Omit<UpdateProductParams, 'images'> {
@@ -80,7 +88,6 @@ export class ProductRepository {
         );
     }
 
-
     async getProductById(id: string) {
         return this._model.findById(id);
     }
@@ -95,6 +102,7 @@ export class ProductRepository {
         const query: Record<string, any> = { isActive: true };
 
         if (filters.category) query.category = filters.category;
+        if (filters.subcategory) query.subcategory = filters.subcategory;
         if (filters.minPrice || filters.maxPrice) {
             query.price = {};
             if (filters.minPrice) query.price.$gte = Number(filters.minPrice);
@@ -151,14 +159,17 @@ export class ProductRepository {
         return product?.sizeStock.filter(s => s.stock > 0) || [];
     }
     
-    async searchProducts(query: string, params: Omit<ListProductsParams, 'filters'>) {
-        const { page, limit } = params;
+    async searchProducts(query: string, params: Omit<ListProductsParams, 'filters'> & { categoryId?: string; subcategoryId?: string }) {
+        const { page, limit, categoryId, subcategoryId } = params;
         
-        const searchQuery = { 
+        const searchQuery: any = { 
             $text: { $search: query }, 
             isActive: true,
             'sizeStock.stock': { $gt: 0 }
         };
+
+        if (categoryId) searchQuery.category = categoryId;
+        if (subcategoryId) searchQuery.subcategory = subcategoryId;
 
         const [products, total] = await Promise.all([
             this._model.find(searchQuery)
@@ -221,5 +232,32 @@ export class ProductRepository {
 
     async startSession() {
         return this._model.db.startSession();
+    }
+
+    async getProductsBySubcategory(subcategoryId: string, params: Omit<ListProductsParams, 'filters'>) {
+        const { page, limit } = params;
+
+        const query = { subcategory: subcategoryId, isActive: true, 'sizeStock.stock': { $gt: 0 }};
+
+        const [ products, total ] = await Promise.all([
+            this._model.find(query).skip((page - 1) * limit).limit(limit),
+            this._model.countDocuments(query)
+        ]);
+
+        return { products, total, page, pages: Math.ceil(total/limit)};
+    }
+
+    async getLowStockProducts(threshold: number = 5) {
+        return this._model.find({
+        isActive: true,
+        'sizeStock.stock': { $lte: threshold, $gt: 0 }
+        }).select('name code sizeStock');
+    }
+
+    async getOutOfStockProducts() {
+        return this._model.find({
+            isActive: true,
+            'sizeStock.stock': 0
+        }).select('name code sizeStock');
     }
 }

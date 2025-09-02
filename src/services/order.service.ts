@@ -116,6 +116,8 @@ class OrderService {
       
     await this.reserveStock(cartDetails.items);
 
+    await cartService.clearCartItems(userId);
+
     return {
       orderId: order._id,
       orderNumber: order.orderNumber,
@@ -264,23 +266,40 @@ class OrderService {
   }
 
   private async reserveStock(cartItems: any[]) {
-    // This would typically involve updating product stock
-    // For now, we'll just log the reservation
-    // console.log('Reserving stock for order items:', cartItems.map(item => ({
-    //   product: item.product._id,
-    //   quantity: item.quantity,
-    //   size: item.size
-    // })));
+    const orderItems = cartItems.map(item => ({
+        productId: item.product._id,
+        size: item.size,
+        quantity: item.quantity,
+        productName: item.product.name
+    }));
+
+    try {
+        await productService.reduceStockForOrder(orderItems);
+    } catch (error: any) {
+        throw new BadRequestError(`Failed to reserve stock: ${error.message}`);
+    }
   }
 
   private async restoreStock(orderItems: any[]) {
-    // This would typically involve restoring product stock
-    // For now, we'll just log the restoration
-    // console.log('Restoring stock for order items:', orderItems.map(item => ({
-    //   product: item.product,
-    //   quantity: item.quantity,
-    //   size: item.size
-    // })));
+    const stockItems = orderItems.map(item => ({
+        productId: item.product.toString(),
+        size: item.size,
+        quantity: item.quantity
+    }));
+
+    try {
+        // Use negative quantity to restore stock
+        for (const item of stockItems) {
+            await productService.updateProductStock({
+                productId: item.productId,
+                size: item.size,
+                quantity: item.quantity // Positive to add back
+            });
+        }
+    } catch (error) {
+        console.error('Failed to restore stock:', error);
+        // Log but don't throw - order cancellation/return should still succeed
+    }
   }
 
   private validateStatusTransition(currentStatus: IOrderStatus, newStatus: IOrderStatus) {
