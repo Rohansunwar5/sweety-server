@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import cartService from '../services/cart.service';
-import { ApplyDiscountInput, CartItemInput, UpdateCartItemInput } from '../repository/cart.repository';
+import { ApplyDiscountInput, CartItemInput, RemoveDiscountInput, UpdateCartItemInput } from '../repository/cart.repository';
 
 export const getCart = async (req: Request, res: Response, next: NextFunction) => {
   const { _id: userId } = req.user;
@@ -17,21 +17,22 @@ export const addItemToCart = async (req: Request, res: Response, next: NextFunct
   next(response);
 };
 
-export const updateCartItem = async (req: Request, res: Response, next: NextFunction) => {
+export const updateCartItemByProduct = async (req: Request, res: Response, next: NextFunction) => {
   const { _id: userId } = req.user;
-  const { itemId } = req.params;
-  const updateData: UpdateCartItemInput = req.body;
-  const response = await cartService.updateCartItem(userId, itemId, updateData);
-
-  next(response);
+    const { productId } = req.params;
+    const { quantity, size } = req.body;
+    
+    const response = await cartService.updateCartItemByProduct(userId, productId, { quantity, size });
+    next(response);
 };
 
-export const removeItemFromCart = async (req: Request, res: Response, next: NextFunction) => {
-  const { _id: userId } = req.user;
-  const { itemId } = req.params;
-  const response = await cartService.removeItemFromCart(userId, itemId);
-
-  next(response);
+export const removeCartItemByProduct = async (req: Request, res: Response, next: NextFunction) => {
+    const { _id: userId } = req.user;
+    const { productId } = req.params;
+    const { size } = req.query;
+    
+    const response = await cartService.removeCartItemByProduct(userId, productId, size as string);
+    next(response);
 };
 
 export const applyDiscount = async (req: Request, res: Response, next: NextFunction) => {
@@ -39,6 +40,13 @@ export const applyDiscount = async (req: Request, res: Response, next: NextFunct
   const discountData: ApplyDiscountInput = req.body;
   const response = await cartService.applyDiscount(userId, discountData);
 
+  next(response);
+};
+
+export const removeDiscount = async (req: Request, res: Response, next: NextFunction) => {
+  const { _id: userId } = req.user;
+  const discountData: RemoveDiscountInput = req.body;
+  const response = await cartService.removeDiscount(userId, discountData);
   next(response);
 };
 
@@ -96,5 +104,39 @@ export const validateCart = async (req: Request, res: Response, next: NextFuncti
         sessionId as string
     );
     
+    next(response);
+};
+
+
+export const addItemToGuestCartByProduct = async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionId, productId } = req.params;
+    const { quantity, size } = req.body;
+    
+    const response = await cartService.addItemToGuestCartByProduct(sessionId, productId, { quantity, size });
+    next(response);
+};
+
+export const updateGuestCartItemByProduct = async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionId, productId } = req.params;
+    const { quantity, size } = req.body;
+    
+    const response = await cartService.updateGuestCartItemByProduct(sessionId, productId, { quantity, size });
+    next(response);
+};
+
+export const removeGuestCartItemByProduct = async (req: Request, res: Response, next: NextFunction) => {
+    const { sessionId, productId } = req.params;
+    const { size } = req.query;
+    
+    const response = await cartService.removeGuestCartItemByProduct(sessionId, productId, size as string);
+    next(response);
+};
+
+// CART MERGE ON LOGIN - Critical for user experience!
+export const mergeGuestCartOnLogin = async (req: Request, res: Response, next: NextFunction) => {
+    const { _id: userId } = req.user;
+    const { sessionId } = req.body;
+    
+    const response = await cartService.mergeGuestCartOnLogin(userId, sessionId);
     next(response);
 };

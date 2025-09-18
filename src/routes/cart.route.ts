@@ -3,24 +3,39 @@ import { asyncHandler } from '../utils/asynchandler';
 import { 
   addItemToCart,
   addItemToGuestCart,
+  addItemToGuestCartByProduct,
   applyDiscount,
   clearCartItems,
   deleteCart,
   getCart,
   getCartWithDetails,
   getGuestCart,
-  removeItemFromCart,
-  updateCartItem
+  mergeGuestCartOnLogin,
+  removeCartItemByProduct,
+  removeDiscount,
+  removeGuestCartItemByProduct,
+  updateCartItemByProduct,
+  updateGuestCartItemByProduct,
 } from '../controllers/cart.controller';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 
 const cartRouter = Router();
 
+cartRouter.put('/product/:productId', isLoggedIn, asyncHandler(updateCartItemByProduct));
+cartRouter.delete('/product/:productId', isLoggedIn, asyncHandler(removeCartItemByProduct));
+
+cartRouter.post('/guest/:sessionId/product/:productId', asyncHandler(addItemToGuestCartByProduct));
+cartRouter.put('/guest/:sessionId/product/:productId', asyncHandler(updateGuestCartItemByProduct));
+cartRouter.delete('/guest/:sessionId/product/:productId', asyncHandler(removeGuestCartItemByProduct));
+
+cartRouter.post('/merge', isLoggedIn, asyncHandler(mergeGuestCartOnLogin));
+
 cartRouter.get('/', isLoggedIn, asyncHandler(getCart));
 cartRouter.post('/', isLoggedIn, asyncHandler(addItemToCart));
-cartRouter.put('/:itemId', isLoggedIn, asyncHandler(updateCartItem));
-cartRouter.delete('/:itemId', isLoggedIn, asyncHandler(removeItemFromCart));
+// cartRouter.put('/:itemId', isLoggedIn, asyncHandler(updateCartItem));
+// cartRouter.delete('/:itemId', isLoggedIn, asyncHandler(removeItemFromCart));
 cartRouter.post('/apply-discount', isLoggedIn, asyncHandler(applyDiscount));
+cartRouter.delete('/remove-discount', isLoggedIn, asyncHandler(removeDiscount));
 cartRouter.get('/details', isLoggedIn, asyncHandler(getCartWithDetails));
 cartRouter.delete('/clear', isLoggedIn, asyncHandler(clearCartItems));
 cartRouter.delete('/', isLoggedIn, asyncHandler(deleteCart));

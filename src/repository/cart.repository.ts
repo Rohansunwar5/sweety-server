@@ -18,6 +18,10 @@ export interface ApplyDiscountInput {
   type: 'coupon' | 'voucher'; 
 }
 
+export interface RemoveDiscountInput {
+  type: 'coupon' | 'voucher' | 'all';
+}
+
 export class CartRepository {
     private _model = cartModel
 
@@ -184,6 +188,26 @@ export class CartRepository {
             { new: true }
         );
     }
-
     
+    async deleteGuestCart(sessionId: string) {
+        return this._model.findOneAndDelete({ sessionId, isActive: true });
+    }
+
+    async removeDiscount(userId: string, type: 'coupon' | 'voucher' | 'all') {
+        const updateFields: any = {};
+        
+        if (type === 'coupon' || type === 'all') {
+            updateFields.appliedCoupon = 1;
+        }
+        
+        if (type === 'voucher' || type === 'all') {
+            updateFields.appliedVoucher = 1;
+        }
+        
+        return this._model.findOneAndUpdate(
+            { user: userId },
+            { $unset: updateFields },
+            { new: true }
+        );
+    }
 }
