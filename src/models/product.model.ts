@@ -23,6 +23,25 @@ const sizeStockSchema = new mongoose.Schema({
     }
 });
 
+const productColorSchema = new mongoose.Schema({
+    colorName: {
+        type: String,
+        required: true,
+        trim: true,
+        maxLength: 50
+    },
+    colorHex: {
+        type: String,
+        required: true,
+        match: /^#([0-9A-Fa-f]{6})$/, // Hex color validation
+    },
+    images: [{
+        type: String,
+        required: true,
+    }],
+    sizeStock: [sizeStockSchema]
+});
+
 const productSchema = new mongoose.Schema(
     {
         name: {
@@ -44,7 +63,7 @@ const productSchema = new mongoose.Schema(
         subcategory: {
             type: mongoose.Types.ObjectId,
         },
-        sizeStock: [sizeStockSchema],
+        colors: [productColorSchema],
         sizeChart: {
             type: String,
         },
@@ -62,10 +81,6 @@ const productSchema = new mongoose.Schema(
             trim: true,
             maxLength: 2000
         }, 
-        images: [{
-            type: String,
-            required: true,
-        }],
         offer: {
             type: mongoose.Types.ObjectId,
         },
@@ -109,13 +124,20 @@ export interface ISizeStock {
     stock: number;
 }
 
+export interface IProductColor {
+    colorName: string;
+    colorHex: string;
+    images: string[];
+    sizeStock: ISizeStock[];
+}
+
 export interface IProduct extends mongoose.Schema {
     _id: string;
     name: string;
     code: string;
     category: mongoose.Types.ObjectId;
     subcategory?: mongoose.Types.ObjectId;
-    sizeStock: ISizeStock[];
+    colors: IProductColor[];
     sizeChart?: string;
     price: number;
     originalPrice?: number;

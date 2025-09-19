@@ -9,44 +9,44 @@ export const initiatePayment = async (req: Request, res: Response, next: NextFun
   next(response);
 };
 
-export const handleSuccessfulPayment = async (req: Request, res: Response) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+// export const handleSuccessfulPayment = async (req: Request, res: Response) => {
+//   try {
+//     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-    console.log('Payment success request:', {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature: razorpay_signature ? 'present' : 'missing'
-    });
+//     console.log('Payment success request:', {
+//       razorpay_order_id,
+//       razorpay_payment_id,
+//       razorpay_signature: razorpay_signature ? 'present' : 'missing'
+//     });
 
-    // Validate required parameters
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required payment parameters'
-      });
-    }
+//     // Validate required parameters
+//     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Missing required payment parameters'
+//       });
+//     }
 
-    // Call service with signature verification
-    const result = await paymentService.handleSuccessfulPayment(
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature
-    );
+//     // Call service with signature verification
+//     const result = await paymentService.handleSuccessfulPayment(
+//       razorpay_order_id,
+//       razorpay_payment_id,
+//       razorpay_signature
+//     );
 
-    res.status(200).json({
-      success: true,
-      message: 'Payment processed successfully',
-      data: result
-    });
-  } catch (error: any) {
-    console.error('Payment processing error:', error);
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message || 'Payment processing failed'
-    });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       message: 'Payment processed successfully',
+//       data: result
+//     });
+//   } catch (error: any) {
+//     console.error('Payment processing error:', error);
+//     res.status(error.statusCode || 500).json({
+//       success: false,
+//       message: error.message || 'Payment processing failed'
+//     });
+//   }
+// };
 
 export const handleFailedPayment = async (req: Request, res: Response, next: NextFunction) => {
   const { razorpayOrderId, razorpayPaymentId } = req.body;

@@ -3,21 +3,21 @@ import orderService from "../services/order.service";
 import { BadRequestError } from "../errors/bad-request.error";
 import { IOrderStatus } from "../models/order.model";
 
-export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
-    const userId = req.user?._id;
-    if (!userId) throw new BadRequestError('User not authenticated');
+// export const createOrder = async (req: Request, res: Response, next: NextFunction) => {
+//     const userId = req.user?._id;
+//     if (!userId) throw new BadRequestError('User not authenticated');
     
-    const { shippingAddress, billingAddress, paymentMethod, notes } = req.body;
-    const response = await orderService.createOrder({
-        userId,
-        shippingAddress,
-        billingAddress,
-        paymentMethod,
-        notes
-    });
+//     const { shippingAddress, billingAddress, paymentMethod, notes } = req.body;
+//     const response = await orderService.createOrder({
+//         userId,
+//         shippingAddress,
+//         billingAddress,
+//         paymentMethod,
+//         notes
+//     });
 
-    next(response);
-}
+//     next(response);
+// }
 
 // Add this to order.controller.ts:
 export const getOrderById = async (req: Request, res: Response, next: NextFunction) => {
@@ -62,24 +62,24 @@ export const getUserOrders = async (req: Request, res: Response, next: NextFunct
     next(response);
 };
 
-export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const userId = req.user?._id;
-    const { reason } = req.body;
+// export const cancelOrder = async (req: Request, res: Response, next: NextFunction) => {
+//     const { id } = req.params;
+//     const userId = req.user?._id;
+//     const { reason } = req.body;
     
-    const response = await orderService.cancelOrder(id, reason, userId);
+//     const response = await orderService.cancelOrder(id, reason, userId);
 
-    next(response);
-}
+//     next(response);
+// }
 
-export const returnOrder = async (req: Request, res: Response, next: NextFunction) => {
-    const { id } = req.params;
-    const userId = req.user?._id;
-    const { reason } = req.body;
-    const response = await orderService.returnOrder(id, reason, userId);
+// export const returnOrder = async (req: Request, res: Response, next: NextFunction) => {
+//     const { id } = req.params;
+//     const userId = req.user?._id;
+//     const { reason } = req.body;
+//     const response = await orderService.returnOrder(id, reason, userId);
 
-    next(response);
-}
+//     next(response);
+// }
 
 export const updateOrderStatus = async (req: Request, res: Response, next: NextFunction) => {
     const { id } = req.params;

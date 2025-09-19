@@ -11,9 +11,6 @@ const wishlistItemSchema = new mongoose.Schema (
             type: Date,
             default: Date.now,
         },
-        size: {
-            type: String,
-        },
         priceWhenAdded: {
             type: Number,
         }
@@ -45,7 +42,6 @@ export interface IWishlistItem {
     _id: string;
     product: mongoose.Types.ObjectId;
     addedAt: Date;
-    size?: string;
     priceWhenAdded?: number;
 }
 

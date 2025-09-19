@@ -1,16 +1,15 @@
 import mongoose from "mongoose";
-import productModel, { ISizeStock } from "../models/product.model";
+import productModel, { ISizeStock, IProductColor } from "../models/product.model";
 
 export interface CreateProductParams {
     name: string;
     code: string;
     category: string;
     subcategory?: string;
-    sizeStock: ISizeStock[];
+    colors: IProductColor[];
     price: number;
     originalPrice?: number;
     description?: string;
-    images: string[];
     sizeChart?: string;
     isActive?: boolean;
     tags?: string [];
@@ -26,7 +25,7 @@ export interface UpdateProductParams {
     code?: string;
     category?: string;
     subcategory?: string;
-    sizeStock?: ISizeStock[];
+    colors: IProductColor [];
     price?: number;
     originalPrice?: number;
     description?: string;
@@ -56,6 +55,7 @@ export interface ListProductsParams {
 
 export interface UpdateStockParams {
     productId: string;
+    colorName: string;
     size: string;
     quantity: number;
 }
@@ -68,15 +68,22 @@ export class ProductRepository {
     }
 
     async updateProductStock(params: UpdateStockParams) {
-        const { productId, size, quantity } = params;
+        const { productId, colorName, size, quantity } = params;
         
         return this._model.findOneAndUpdate(
-            { 
+            {
                 _id: productId,
-                "sizeStock.size": size 
+                "colors.colorName": colorName,
+                "colors.sizeStock.size": size
             },
-            { $inc: { "sizeStock.$.stock": quantity } },
-            { new: true }
+            { $inc: { "colors.$[color].sizeStock.$[size].stock": quantity } },
+            {
+                new: true,
+                arrayFilters: [
+                    { "color.colorName": colorName },
+                    { "size.size": size }
+                ]
+            }
         );
     }
 
@@ -108,14 +115,24 @@ export class ProductRepository {
             if (filters.minPrice) query.price.$gte = Number(filters.minPrice);
             if (filters.maxPrice) query.price.$lte = Number(filters.maxPrice);
         }
+
         if (filters.size) {
-            query['sizeStock.size'] = filters.size;
-            query['sizeStock.stock'] = { $gt: 0 };
+            // Filter products with at least one color that has this size with stock > 0
+            query["colors.sizeStock"] = {
+                $elemMatch: {
+                    size: filters.size,
+                    stock: { $gt: 0 }
+                }
+            };
         }
-        
+
+        if (filters.colorName) {
+            query["colors.colorName"] = filters.colorName;
+        }
+
         const [products, total] = await Promise.all([
             this._model.find(query)
-                .sort(sort || '-createdAt')
+                .sort(sort || "-createdAt")
                 .skip((page - 1) * limit)
                 .limit(limit),
             this._model.countDocuments(query)
@@ -129,13 +146,13 @@ export class ProductRepository {
         };
     }
 
-    async getProductsByCategory(categoryId: string, params: Omit<ListProductsParams, 'filters'>) {
+    async getProductsByCategory(categoryId: string, params: Omit<ListProductsParams, "filters">) {
         const { page, limit } = params;
 
-        const query = { 
-            category: categoryId, 
+        const query = {
+            category: categoryId,
             isActive: true,
-            'sizeStock.stock': { $gt: 0 }
+            "colors.sizeStock.stock": { $gt: 0 }
         };
 
         const [products, total] = await Promise.all([
@@ -153,19 +170,25 @@ export class ProductRepository {
         };
     }
 
-    async getAvailableSizes(productId: string): Promise<ISizeStock[]> {
-        const product = await this._model.findById(productId)
-            .select('sizeStock');
-        return product?.sizeStock.filter(s => s.stock > 0) || [];
+
+    async getAvailableSizes(productId: string, colorName: string): Promise<ISizeStock[]> {
+        const product = await this._model.findOne(
+            { _id: productId, "colors.colorName": colorName },
+            { "colors.$": 1 }
+        );
+
+        const color = product?.colors?.[0];
+        return color?.sizeStock.filter(s => s.stock > 0) || [];
     }
     
-    async searchProducts(query: string, params: Omit<ListProductsParams, 'filters'> & { categoryId?: string; subcategoryId?: string }) {
+    async searchProducts( query: string, params: Omit<ListProductsParams, "filters"> & { categoryId?: string; subcategoryId?: string } ) 
+    {
         const { page, limit, categoryId, subcategoryId } = params;
-        
-        const searchQuery: any = { 
-            $text: { $search: query }, 
+
+        const searchQuery: any = {
+            $text: { $search: query },
             isActive: true,
-            'sizeStock.stock': { $gt: 0 }
+            "colors.sizeStock.stock": { $gt: 0 }
         };
 
         if (categoryId) searchQuery.category = categoryId;
@@ -173,7 +196,7 @@ export class ProductRepository {
 
         const [products, total] = await Promise.all([
             this._model.find(searchQuery)
-                .sort({ score: { $meta: 'textScore' } })
+                .sort({ score: { $meta: "textScore" } })
                 .skip((page - 1) * limit)
                 .limit(limit),
             this._model.countDocuments(searchQuery)
@@ -187,46 +210,64 @@ export class ProductRepository {
         };
     }
 
-    async reduceProductStock(productId: string, size: string, quantity: number, session?: any) {
+    async reduceProductStock(productId: string, colorName: string, size: string, quantity: number, session?: any) {
         return this._model.updateOne(
-            { 
+            {
                 _id: productId,
-                "sizeStock.size": size,
-                "sizeStock.stock": { $gte: quantity } // Ensure sufficient stock
+                "colors.colorName": colorName,
+                "colors.sizeStock.size": size,
+                "colors.sizeStock.stock": { $gte: quantity }
             },
-            { $inc: { "sizeStock.$.stock": -quantity } },
-            { session }
+            { $inc: { "colors.$[color].sizeStock.$[size].stock": -quantity } },
+            {
+                session,
+                arrayFilters: [
+                    { "color.colorName": colorName },
+                    { "size.size": size }
+                ]
+            }
         );
     }
 
-    async getProductStock(productId: string, size: string) {
+    async getProductStock(productId: string, colorName: string, size: string) {
         const product = await this._model.findOne(
-            { _id: productId, "sizeStock.size": size },
-            { "sizeStock.$": 1 }
+            {
+                _id: productId,
+                "colors.colorName": colorName,
+                "colors.sizeStock.size": size
+            },
+            {
+                "colors.$": 1
+            }
         );
-        
-        return product?.sizeStock[0]?.stock || 0;
+
+        if (!product?.colors?.length) return 0;
+
+        const color = product.colors[0];
+        const sizeStock = color.sizeStock.find(ss => ss.size === size);
+        return sizeStock?.stock || 0;
     }
 
-    async getMultipleProductStocks(items: Array<{ productId: string; size: string }>) {
-        const stockPromises = items.map(item => 
-            this.getProductStock(item.productId, item.size)
-                .then(stock => ({
-                    productId: item.productId,
-                    size: item.size,
-                    stock
-                }))
+    async getMultipleProductStocks(items: Array<{ productId: string; colorName: string; size: string }>) {
+        const stockPromises = items.map(item =>
+            this.getProductStock(item.productId, item.colorName, item.size).then(stock => ({
+                productId: item.productId,
+                colorName: item.colorName,
+                size: item.size,
+                stock
+            }))
         );
-        
+
         return Promise.all(stockPromises);
     }
 
-    async checkProductSizeExists(productId: string, size: string) {
+    async checkProductSizeExists(productId: string, colorName: string, size: string) {
         const product = await this._model.findOne({
             _id: productId,
-            "sizeStock.size": size
+            "colors.colorName": colorName,
+            "colors.sizeStock.size": size
         });
-        
+
         return !!product;
     }
 
@@ -234,30 +275,34 @@ export class ProductRepository {
         return this._model.db.startSession();
     }
 
-    async getProductsBySubcategory(subcategoryId: string, params: Omit<ListProductsParams, 'filters'>) {
+    async getProductsBySubcategory(subcategoryId: string, params: Omit<ListProductsParams, "filters">) {
         const { page, limit } = params;
 
-        const query = { subcategory: subcategoryId, isActive: true, 'sizeStock.stock': { $gt: 0 }};
+        const query = {
+            subcategory: subcategoryId,
+            isActive: true,
+            "colors.sizeStock.stock": { $gt: 0 }
+        };
 
-        const [ products, total ] = await Promise.all([
+        const [products, total] = await Promise.all([
             this._model.find(query).skip((page - 1) * limit).limit(limit),
             this._model.countDocuments(query)
         ]);
 
-        return { products, total, page, pages: Math.ceil(total/limit)};
+        return { products, total, page, pages: Math.ceil(total / limit) };
     }
 
     async getLowStockProducts(threshold: number = 5) {
         return this._model.find({
-        isActive: true,
-        'sizeStock.stock': { $lte: threshold, $gt: 0 }
-        }).select('name code sizeStock');
+            isActive: true,
+            "colors.sizeStock.stock": { $lte: threshold, $gt: 0 }
+        }).select("name code colors");
     }
 
     async getOutOfStockProducts() {
         return this._model.find({
             isActive: true,
-            'sizeStock.stock': 0
-        }).select('name code sizeStock');
+            "colors.sizeStock.stock": 0
+        }).select("name code colors");
     }
 }

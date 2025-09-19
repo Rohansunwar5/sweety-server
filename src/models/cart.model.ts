@@ -14,6 +14,22 @@ const cartItemSchema = new mongoose.Schema (
         },
         size: {
             type: String,
+            required: true,
+        },
+        color: {
+            colorName: {
+                type: String,
+                required: true,
+                trim: true,
+            },
+            colorHex: {
+                type: String,
+                required: true,
+            }
+        },
+        selectedImage: {
+            type: String,
+            required: true,
         },
         addedAt: {
             type: Date,
@@ -31,7 +47,7 @@ const cartSchema = new mongoose.Schema(
         items: [
             cartItemSchema
         ],
-         appliedCoupon: {
+        appliedCoupon: {
             code: String,
             discountId: mongoose.Types.ObjectId,
             discountAmount: Number
@@ -56,15 +72,24 @@ const cartSchema = new mongoose.Schema(
     }, { timestamps : true }
 )
 
+cartItemSchema.index({ product: 1, 'color.colorName': 1, size: 1 });
+
 cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 cartSchema.index({ sessionId: 1 });
 cartSchema.index({ user: 1, isActive: 1 });
+
+export interface ICartItemColor {
+    colorName: string;
+    colorHex: string;
+}
 
 export interface ICartItem extends mongoose.Schema {
     _id: string;
     product: mongoose.Types.ObjectId,
     quantity: number,
-    size?: string,
+    size: string,
+    color: ICartItemColor;
+    selectedImage: string;
     addedAt: Date;
 }
 

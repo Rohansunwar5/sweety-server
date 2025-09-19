@@ -5,12 +5,22 @@ import { DiscountCalculationResult } from "./discount.repository";
 export interface CartItemInput {
   product: string;
   quantity: number;
-  size?: string;
+  size: string;
+  color: {
+    colorName: string;
+    colorHex: string;
+  };
+  selectedImage: string;
 }
 
 export interface UpdateCartItemInput {
   quantity?: number;
   size?: string;
+  color?: {
+    colorName: string;
+    colorHex: string;
+  };
+  selectedImage?: string;
 }
 
 export interface ApplyDiscountInput {
@@ -27,48 +37,78 @@ export class CartRepository {
 
     async getCartByUserId(userId: string) {
         return this._model.findOne({ user: userId });
-        // Removed .populate() calls
     }
 
     async createCart(userId: string) {
-        return this._model.create({ user: userId, items: [] }); // Fixed typo: item -> items
+        return this._model.create({ user: userId, items: [] }); 
     }
 
     async addItemToCart(userId: string, item: CartItemInput) {
+        const exisitngCart = await this._model.findOne({
+            user: userId,
+            'items.product': item.product,
+            'items.color.colorName': item.color.colorName,
+            'items.size': item.size
+        });
+
+        if(exisitngCart) {
+            return this.updateExistingCartItem(userId, item);
+        }
+
         return this._model.findOneAndUpdate(
             { user: userId },
-            { $push: { items: item } },
-            { new: true, upsert: true }
+            { $push: { items: item }},
+            { new: true, upsert:true }
+        )
+    }
+
+    private async updateExistingCartItem(userId: string, item: CartItemInput) {
+        return this._model.findOneAndUpdate(
+            { 
+                user: userId,
+                'items.product': item.product,
+                'items.color.colorName': item.color.colorName,
+                'items.size': item.size
+            },
+            { 
+                $inc: { 'items.$.quantity': item.quantity },
+                $set: { 'items.$.addedAt': new Date() }
+            },
+            { new: true }
         );
-        // Removed .populate()
     }
 
     async updateCartItem(userId: string, itemId: string, updateData: UpdateCartItemInput) {
-    const update: any = { 
-        'items.$.updatedAt': new Date() 
-    };
-    
-    if (updateData.quantity !== undefined) {
-        update['items.$.quantity'] = updateData.quantity;
-    }
-    if (updateData.size !== undefined) {
-        update['items.$.size'] = updateData.size;
-    }
+        const update: any = { 
+            'items.$.addedAt': new Date() // Use addedAt instead of updatedAt as per schema
+        };
+        
+        if (updateData.quantity !== undefined) {
+            update['items.$.quantity'] = updateData.quantity;
+        }
+        if (updateData.size !== undefined) {
+            update['items.$.size'] = updateData.size;
+        }
+        if (updateData.color !== undefined) {
+            update['items.$.color'] = updateData.color;
+        }
+        if (updateData.selectedImage !== undefined) {
+            update['items.$.selectedImage'] = updateData.selectedImage;
+        }
 
-    return this._model.findOneAndUpdate(
-        { user: userId, 'items._id': itemId },
-        { $set: update },
-        { new: true }
-    );
-}
+        return this._model.findOneAndUpdate(
+            { user: userId, 'items._id': itemId },
+            { $set: update },
+            { new: true }
+        );
+    }
 
     async removeItemFromCart(userId: string, itemId: string) {
         return this._model.findOneAndUpdate(
             { user: userId },
-            { $pull: { items: { _id: new mongoose.Types.ObjectId(itemId)  } } },
+            { $pull: { items: { _id: new mongoose.Types.ObjectId(itemId) } } },
             { new: true }
         );
-        // Removed .populate()
     }
 
     async getCartBySessionId(sessionId: string) {
@@ -80,7 +120,7 @@ export class CartRepository {
             sessionId, 
             items: [], 
             isActive: true,
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) 
         });
     }
 
@@ -108,7 +148,6 @@ export class CartRepository {
             },
             { new: true }
         );
-        // Removed .populate()
     }
 
     async clearCartItems(userId: string) {
@@ -122,8 +161,6 @@ export class CartRepository {
     async deleteCart(userId: string) {
         return this._model.findOneAndDelete({ user: userId });
     }
-
-    // Add this method to your CartRepository class if it doesn't exist
 
     async clearDiscount(userId: string, type: 'coupon' | 'voucher') {
         const updateField = type === 'coupon' ? 'appliedCoupon' : 'appliedVoucher';
@@ -140,20 +177,49 @@ export class CartRepository {
             { user: userId },
             { $set: { items } },
             { new: true, upsert: true }
-        );
+        ).populate('items.product');
     }
 
     async addItemToCartBySessionId(sessionId: string, item: CartItemInput) {
+        const exisitngCart = await this._model.findOne({
+            sessionId,
+            isActive: true,
+            'items.product': item.product,
+            'items.color.colorName': item.color.colorName,
+            'items.size': item.size
+        })
+
+        if(exisitngCart) {
+            return this.updateExistingCartItemBySessionId(sessionId, item);
+        }
+
         return this._model.findOneAndUpdate(
             { sessionId, isActive: true },
             { $push: { items: item } },
             { new: true, upsert: true }
+        )
+    }
+
+    private async updateExistingCartItemBySessionId(sessionId: string, item: CartItemInput) {
+        return this._model.findOneAndUpdate(
+            { 
+                sessionId,
+                isActive: true,
+                'items.product': item.product,
+                'items.color.colorName': item.color.colorName,
+                'items.size': item.size
+            },
+            { 
+                $inc: { 'items.$.quantity': item.quantity },
+                $set: { 'items.$.addedAt': new Date() }
+            },
+            { new: true }
         );
     }
 
     async updateCartItemBySessionId(sessionId: string, itemId: string, updateData: UpdateCartItemInput) {
         const update: any = { 
-            'items.$.updatedAt': new Date() 
+            'items.$.addedAt': new Date() 
         };
         
         if (updateData.quantity !== undefined) {
@@ -161,6 +227,12 @@ export class CartRepository {
         }
         if (updateData.size !== undefined) {
             update['items.$.size'] = updateData.size;
+        }
+        if (updateData.color !== undefined) {
+            update['items.$.color'] = updateData.color;
+        }
+        if (updateData.selectedImage !== undefined) {
+            update['items.$.selectedImage'] = updateData.selectedImage;
         }
 
         return this._model.findOneAndUpdate(
@@ -209,5 +281,33 @@ export class CartRepository {
             { $unset: updateFields },
             { new: true }
         );
+    }
+
+    async checkItemExists(userId: string, productId: string, colorName: string, size: string) {
+        return this._model.findOne({
+            user: userId,
+            'items.product': productId,
+            'items.color.colorName': colorName,
+            'items.size': size
+        });
+    }
+
+    async getCartItem(userId: string, productId: string, colorName: string, size: string) {
+        const cart = await this._model.findOne({
+            user: userId,
+            'items.product': productId,
+            'items.color.colorName': colorName,
+            'items.size': size
+        });
+
+        if (!cart) return null;
+
+        const item = cart.items.find(item => 
+            item.product.toString() === productId &&
+            item.color.colorName === colorName &&
+            item.size === size
+        );
+
+        return item || null;
     }
 }

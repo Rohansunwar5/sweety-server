@@ -25,6 +25,7 @@ class CartService {
             const productId = item.product.toString();
             const product = productMap[productId];
             if (!product) throw new NotFoundError(`Product not found for ID: ${productId}`)
+            
             const itemTotal = product.price * item.quantity;
             return {
                 _id: item._id,
@@ -32,10 +33,12 @@ class CartService {
                     _id: product._id,
                     name: product.name,
                     price: product.price,
-                    images: product.images,
+                    images: product.images, // This will be all product images, not color-specific
                 },
                 quantity: item.quantity,
                 size: item.size,
+                color: item.color,
+                selectedImage: item.selectedImage,
                 addedAt: item.addedAt,
                 itemTotal: itemTotal
             };
@@ -58,19 +61,31 @@ class CartService {
     }
 
     async addItemToCart(userId: string, item: CartItemInput) {
-        if (!item.product)  throw new BadRequestError('Product ID is required')
+        if (!item.product) throw new BadRequestError('Product ID is required')
+        if (!item.color || !item.color.colorName || !item.color.colorHex) throw new BadRequestError('Color selection is required')
+        if (!item.size) throw new BadRequestError('Size selection is required')
+        if (!item.selectedImage) throw new BadRequestError('Selected image is required')
+
         const product = await productService.getProductById(item.product);
         
         if (!product) throw new NotFoundError('Product not found');
         if(!product.isActive) throw new BadRequestError('Product is not available for sale');
 
-        const sizeStock = product.sizeStock.find(s => s.size === item.size);        
-        if (!sizeStock || sizeStock.stock < item.quantity) throw new BadRequestError('Insufficient stock for selected size');
+        // Find the specific color variant
+        const colorVariant = product.colors.find((c: any) => c.colorName === item.color.colorName);
+        if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+        // Check stock for the specific color and size combination
+        const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === item.size);        
+        if (!sizeStock || sizeStock.stock < item.quantity) {
+            throw new BadRequestError('Insufficient stock for selected color and size combination');
+        }
         
         const cart = await this.getCart(userId);
         const existingItem = cart.items.find(i => 
             i.product.toString() === item.product && 
-            i.size === item.size
+            i.size === item.size &&
+            i.color.colorName === item.color.colorName
         );
 
         let updatedCart;
@@ -110,27 +125,30 @@ class CartService {
     }
 
 
-    async updateCartItemByProduct(userId: string, productId: string, updateData: { quantity: number; size?: string }) {
+    async updateCartItemByProduct(userId: string, itemId: string, updateData: UpdateCartItemInput) {
         const cart = await this.getCart(userId);
         
-        const item = cart.items.find(i => 
-            i.product.toString() === productId && 
-            i.size === updateData.size
-        );
-        
+        const item = cart.items.find(i => i._id.toString() === itemId);
         if (!item) throw new NotFoundError('Item not found in cart')
         
-        const product = await productService.getProductById(productId);
+        const product = await productService.getProductById(item.product.toString());
         if (!product || !product.isActive) {
             throw new NotFoundError('Product not found or inactive');
         }
         
-        const sizeStock = product.sizeStock.find(s => s.size === updateData.size);
-        if (!sizeStock || sizeStock.stock < updateData.quantity) {
-            throw new BadRequestError('Insufficient stock for selected size');
+        // Get the color variant (use existing color if not updating)
+        const targetColor = updateData.color || item.color;
+        const colorVariant = product.colors.find((c: any) => c.colorName === targetColor.colorName);
+        if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+        // Get size stock (use existing size if not updating)
+        const targetSize = updateData.size || item.size;
+        const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === targetSize);
+        if (!sizeStock || sizeStock.stock < (updateData.quantity || item.quantity)) {
+            throw new BadRequestError('Insufficient stock for selected color and size combination');
         }
         
-        const updatedCart = await this._cartRepository.updateCartItem(userId, item._id.toString(), updateData);
+        const updatedCart = await this._cartRepository.updateCartItem(userId, itemId, updateData);
         
         if (!updatedCart) throw new NotFoundError('Failed to update cart item');
 
@@ -149,12 +167,13 @@ class CartService {
         return updatedCart;
     }
 
-    async removeCartItemByProduct(userId: string, productId: string, size?: string) {
+    async removeCartItemByProduct(userId: string, productId: string, colorName: string, size: string) {
         const cart = await this.getCart(userId);
         
         const item = cart.items.find(i => 
             i.product.toString() === productId && 
-            i.size === size
+            i.size === size &&
+            i.color.colorName === colorName
         );
         
         if (!item) {
@@ -183,7 +202,6 @@ class CartService {
         }
 
         return updatedCart;
-
     }
 
     private async safeReapplyDiscount(userId: string, { code, type }: ApplyDiscountInput) {
@@ -276,90 +294,90 @@ class CartService {
         return this._cartRepository.deleteCart(userId);
     }
 
-    async mergeCarts(userId: string, guestCartItems: CartItemInput[]) {
-        let userCart = await this._cartRepository.getCartByUserId(userId);
-        if (!userCart) {
-            userCart = await this._cartRepository.createCart(userId);
-        }
+    // async mergeCarts(userId: string, guestCartItems: CartItemInput[]) {
+    //     let userCart = await this._cartRepository.getCartByUserId(userId);
+    //     if (!userCart) {
+    //         userCart = await this._cartRepository.createCart(userId);
+    //     }
 
-        if (!guestCartItems || guestCartItems.length === 0) {
-            return userCart;
-        }
+    //     if (!guestCartItems || guestCartItems.length === 0) {
+    //         return userCart;
+    //     }
 
-        // Validate guest cart items before merging
-        const validatedItems = [];
-        for (const item of guestCartItems) {
-            try {
-                if (!item.product || !item.quantity || item.quantity <= 0) {
-                    console.warn(`Invalid guest cart item structure:`, item);
-                    continue;
-                }
+    //     // Validate guest cart items before merging
+    //     const validatedItems = [];
+    //     for (const item of guestCartItems) {
+    //         try {
+    //             if (!item.product || !item.quantity || item.quantity <= 0) {
+    //                 console.warn(`Invalid guest cart item structure:`, item);
+    //                 continue;
+    //             }
 
-                const product = await productService.getProductById(item.product);
-                if (!product || !product.isActive) {
-                    console.warn(`Product not available: ${item.product}`);
-                    continue;
-                }
+    //             const product = await productService.getProductById(item.product);
+    //             if (!product || !product.isActive) {
+    //                 console.warn(`Product not available: ${item.product}`);
+    //                 continue;
+    //             }
 
-                // Validate size requirement
-                if (product.sizeStock && product.sizeStock.length > 0 && !item.size) {
-                    console.warn(`Size required for product: ${item.product}`);
-                    continue;
-                }
+    //             // Validate size requirement
+    //             if (product.sizeStock && product.sizeStock.length > 0 && !item.size) {
+    //                 console.warn(`Size required for product: ${item.product}`);
+    //                 continue;
+    //             }
 
-                const sizeStock = product.sizeStock.find(s => s.size === item.size);
-                if (!sizeStock || sizeStock.stock < item.quantity) {
-                    // Add with available stock if some is available
-                    if (sizeStock && sizeStock.stock > 0) {
-                        validatedItems.push({
-                            ...item,
-                            quantity: sizeStock.stock
-                        });
-                    }
-                    continue;
-                }
+    //             const sizeStock = product.sizeStock.find(s => s.size === item.size);
+    //             if (!sizeStock || sizeStock.stock < item.quantity) {
+    //                 // Add with available stock if some is available
+    //                 if (sizeStock && sizeStock.stock > 0) {
+    //                     validatedItems.push({
+    //                         ...item,
+    //                         quantity: sizeStock.stock
+    //                     });
+    //                 }
+    //                 continue;
+    //             }
 
-                validatedItems.push({ ...item });
-            } catch (error) {
-                console.warn(`Error validating guest cart item ${item.product}:`, error);
-            }
-        }
+    //             validatedItems.push({ ...item });
+    //         } catch (error) {
+    //             console.warn(`Error validating guest cart item ${item.product}:`, error);
+    //         }
+    //     }
 
-        // Merge items logic
-        const mergedMap = new Map<string, CartItemInput>();
-        const getKey = (item: { product: string, size?: string }) =>
-            `${item.product}_${item.size || ''}`;
+    //     // Merge items logic
+    //     const mergedMap = new Map<string, CartItemInput>();
+    //     const getKey = (item: { product: string, size?: string }) =>
+    //         `${item.product}_${item.size || ''}`;
 
-        // Add user cart items
-        for (const item of userCart.items || []) {
-            const cartItemData: CartItemInput = {
-                product: item.product.toString(),
-                quantity: item.quantity,
-                size: item.size,
-            };
-            mergedMap.set(getKey(cartItemData), cartItemData);
-        }
+    //     // Add user cart items
+    //     for (const item of userCart.items || []) {
+    //         const cartItemData: CartItemInput = {
+    //             product: item.product.toString(),
+    //             quantity: item.quantity,
+    //             size: item.size,
+    //         };
+    //         mergedMap.set(getKey(cartItemData), cartItemData);
+    //     }
 
-        // Merge in validated guest cart items
-        for (const item of validatedItems) {
-            const key = getKey(item);
-            if (mergedMap.has(key)) {
-                const existing = mergedMap.get(key)!;
-                // Check stock availability for merged quantity
-                const product = await productService.getProductById(item.product);
-                const sizeStock = product?.sizeStock.find(s => s.size === item.size);
-                const maxQuantity = sizeStock?.stock || 0;
-                const newQuantity = Math.min(existing.quantity + item.quantity, maxQuantity);
+    //     // Merge in validated guest cart items
+    //     for (const item of validatedItems) {
+    //         const key = getKey(item);
+    //         if (mergedMap.has(key)) {
+    //             const existing = mergedMap.get(key)!;
+    //             // Check stock availability for merged quantity
+    //             const product = await productService.getProductById(item.product);
+    //             const sizeStock = product?.sizeStock.find(s => s.size === item.size);
+    //             const maxQuantity = sizeStock?.stock || 0;
+    //             const newQuantity = Math.min(existing.quantity + item.quantity, maxQuantity);
                 
-                mergedMap.set(key, { ...existing, quantity: newQuantity });
-            } else {
-                mergedMap.set(key, { ...item });
-            }
-        }
+    //             mergedMap.set(key, { ...existing, quantity: newQuantity });
+    //         } else {
+    //             mergedMap.set(key, { ...item });
+    //         }
+    //     }
 
-        const mergedItems = Array.from(mergedMap.values());
-        return this._cartRepository.replaceCartItems(userId, mergedItems);
-    }
+    //     const mergedItems = Array.from(mergedMap.values());
+    //     return this._cartRepository.replaceCartItems(userId, mergedItems);
+    // }
 
 
     async getGuestCart(sessionId: string) {
@@ -367,18 +385,22 @@ class CartService {
     }
 
     async addItemToGuestCart(sessionId: string, item: CartItemInput) {
+        if (!item.color || !item.color.colorName || !item.color.colorHex) throw new BadRequestError('Color selection is required')
+        if (!item.size) throw new BadRequestError('Size selection is required')
+        if (!item.selectedImage) throw new BadRequestError('Selected image is required')
+
         const product = await productService.getProductById(item.product);
         if (!product) throw new NotFoundError('Product not found');
         if (!product.isActive) throw new BadRequestError('Product is not available');
         
-        // Validate size requirement
-        if (product.sizeStock && product.sizeStock.length > 0 && !item.size) {
-            throw new BadRequestError('Size selection is required for this product');
-        }
-        
-        const sizeStock = product.sizeStock.find(s => s.size === item.size);
+        // Find the specific color variant
+        const colorVariant = product.colors.find((c: any) => c.colorName === item.color.colorName);
+        if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+        // Check stock for the specific color and size combination
+        const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === item.size);
         if (!sizeStock || sizeStock.stock < item.quantity) {
-            throw new BadRequestError('Insufficient stock for selected size');
+            throw new BadRequestError('Insufficient stock for selected color and size combination');
         }
 
         let cart = await this._cartRepository.getCartBySessionId(sessionId);
@@ -388,7 +410,8 @@ class CartService {
 
         const existingItem = cart.items.find(i => 
             i.product.toString() === item.product && 
-            i.size === item.size
+            i.size === item.size &&
+            i.color.colorName === item.color.colorName
         );
 
         if (existingItem) {
@@ -431,12 +454,24 @@ class CartService {
                     continue;
                 }
 
-                const sizeStock = product.sizeStock.find(s => s.size === item.size);
+                // Check if color variant still exists
+                const colorVariant = product.colors.find((c: any) => c.colorName === item.color.colorName);
+                if (!colorVariant) {
+                    issues.push({
+                        itemId: item._id,
+                        productId: item.product,
+                        issue: 'Color variant no longer available'
+                    });
+                    continue;
+                }
+
+                // Check if size still exists for this color
+                const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === item.size);
                 if (!sizeStock) {
                     issues.push({
                         itemId: item._id,
                         productId: item.product,
-                        issue: 'Size no longer available'
+                        issue: 'Size no longer available for selected color'
                     });
                     continue;
                 }
@@ -445,7 +480,7 @@ class CartService {
                     issues.push({
                         itemId: item._id,
                         productId: item.product,
-                        issue: `Only ${sizeStock.stock} items available, but ${item.quantity} requested`
+                        issue: `Only ${sizeStock.stock} items available for selected color and size, but ${item.quantity} requested`
                     });
                     // Optionally update quantity to available stock
                     validItems.push({
@@ -473,18 +508,18 @@ class CartService {
         };
     }
 
-    async addItemToGuestCartByProduct(sessionId: string, productId: string, addData: { quantity: number; size?: string }) {
+    async addItemToGuestCartByProduct(sessionId: string, productId: string, addData: { quantity: number; size: string; color: { colorName: string; colorHex: string }; selectedImage: string }) {
         const product = await productService.getProductById(productId);
         if (!product || !product.isActive) throw new NotFoundError('Product not found or inactive');
         
-        // Validate size requirement and stock
-        if (product.sizeStock && product.sizeStock.length > 0 && !addData.size) {
-            throw new BadRequestError('Size selection is required for this product');
-        }
-        
-        const sizeStock = product.sizeStock.find(s => s.size === addData.size);
+        // Find the specific color variant
+        const colorVariant = product.colors.find((c: any) => c.colorName === addData.color.colorName);
+        if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+        // Check stock for the specific color and size combination
+        const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === addData.size);
         if (!sizeStock || sizeStock.stock < addData.quantity) {
-            throw new BadRequestError('Insufficient stock for selected size');
+            throw new BadRequestError('Insufficient stock for selected color and size combination');
         }
 
         let cart = await this._cartRepository.getCartBySessionId(sessionId);
@@ -492,10 +527,11 @@ class CartService {
             cart = await this._cartRepository.createGuestCart(sessionId);
         }
 
-        // Find existing item by product + size
+        // Find existing item by product + color + size
         const existingItem = cart.items.find(i => 
             i.product.toString() === productId && 
-            i.size === addData.size
+            i.size === addData.size &&
+            i.color.colorName === addData.color.colorName
         );
 
         if (existingItem) {
@@ -513,44 +549,121 @@ class CartService {
             return this._cartRepository.addItemToCartBySessionId(sessionId, {
                 product: productId,
                 quantity: addData.quantity,
-                size: addData.size
+                size: addData.size,
+                color: addData.color,
+                selectedImage: addData.selectedImage
             });
         }
     }
 
-    async updateGuestCartItemByProduct(sessionId: string, productId: string, updateData: { quantity: number; size?: string }) {
+    // async updateGuestCartItemByProduct(sessionId: string, productId: string, updateData: { quantity: number; size?: string; color?: { colorName: string; colorHex: string }; selectedImage?: string }) {
+    //     const cart = await this._cartRepository.getCartBySessionId(sessionId);
+    //     if (!cart) throw new NotFoundError('Guest cart not found');
+        
+    //     console.log('Cart found:', cart);
+    //     console.log('Looking for item with productId:', productId);
+    //     console.log('UpdateData:', updateData);
+        
+    //     // Find item by productId first, then filter by size and color if provided
+    //     let item;
+        
+    //     if (updateData.size && updateData.color?.colorName) {
+    //         // If both size and color are provided, find exact match
+    //         item = cart.items.find(i => 
+    //             i.product.toString() === productId && 
+    //             i.size === updateData.size &&
+    //             i.color.colorName === updateData.color!.colorName
+    //         );
+    //     } else {
+    //         // If updating existing item, find by productId and existing size/color
+    //         // This handles cases where you want to update quantity without changing size/color
+    //         item = cart.items.find(i => i.product.toString() === productId);
+            
+    //         // If multiple items exist for same product (different colors/sizes), 
+    //         // you'll need to be more specific in your API call
+    //         if (!item && cart.items.filter(i => i.product.toString() === productId).length > 1) {
+    //             throw new BadRequestError('Multiple items found for this product. Please specify size and color.');
+    //         }
+    //     }
+        
+    //     console.log('Found item:', item);
+        
+    //     if (!item) {
+    //         console.log('Available items in cart:', cart.items.map(i => ({
+    //             productId: i.product.toString(),
+    //             size: i.size,
+    //             colorName: i.color.colorName
+    //         })));
+    //         throw new NotFoundError('Item not found in guest cart');
+    //     }
+        
+    //     // Validate stock
+    //     const product = await productService.getProductById(productId);
+    //     if (!product || !product.isActive) throw new NotFoundError('Product not found or inactive');
+        
+    //     // Get the color variant (use existing color if not updating)
+    //     const targetColor = updateData.color || item.color;
+    //     const colorVariant = product.colors.find((c: any) => c.colorName === targetColor.colorName);
+    //     if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+    //     // Get size stock (use existing size if not updating)
+    //     const targetSize = updateData.size || item.size;
+    //     const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === targetSize);
+    //     if (!sizeStock || sizeStock.stock < updateData.quantity) {
+    //         throw new BadRequestError('Insufficient stock for selected color and size combination');
+    //     }
+        
+    //     return this._cartRepository.updateCartItemBySessionId(sessionId, item._id.toString(), updateData);
+    // }
+
+    async updateGuestCartItemById(sessionId: string, itemId: string, updateData: UpdateCartItemInput) {
         const cart = await this._cartRepository.getCartBySessionId(sessionId);
         if (!cart) throw new NotFoundError('Guest cart not found');
         
-        const item = cart.items.find(i => 
-            i.product.toString() === productId && 
-            i.size === updateData.size
-        );
-        
+        const item = cart.items.find(i => i._id.toString() === itemId);
         if (!item) throw new NotFoundError('Item not found in guest cart');
         
-        // Validate stock
-        const product = await productService.getProductById(productId);
+        // Validate stock with new color/size if provided
+        const product = await productService.getProductById(item.product.toString());
         if (!product || !product.isActive) throw new NotFoundError('Product not found or inactive');
         
-        const sizeStock = product.sizeStock.find(s => s.size === updateData.size);
-        if (!sizeStock || sizeStock.stock < updateData.quantity) {
-            throw new BadRequestError('Insufficient stock for selected size');
+        const targetColor = updateData.color || item.color;
+        const targetSize = updateData.size || item.size;
+        
+        const colorVariant = product.colors.find((c: any) => c.colorName === targetColor.colorName);
+        if (!colorVariant) throw new BadRequestError('Selected color is not available for this product');
+
+        const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === targetSize);
+        if (!sizeStock || sizeStock.stock < (updateData.quantity || item.quantity)) {
+            throw new BadRequestError('Insufficient stock for selected color and size combination');
         }
         
-        return this._cartRepository.updateCartItemBySessionId(sessionId, item._id.toString(), updateData);
+        return this._cartRepository.updateCartItemBySessionId(sessionId, itemId, updateData);
     }
 
-    async removeGuestCartItemByProduct(sessionId: string, productId: string, size?: string) {
+    async removeGuestCartItemByProduct(sessionId: string, productId: string, colorName: string, size: string) {
         const cart = await this._cartRepository.getCartBySessionId(sessionId);
         if (!cart) throw new NotFoundError('Guest cart not found');
         
+        console.log('Cart found:', cart);
+        console.log('Looking for item with:', { productId, colorName, size });
+        
         const item = cart.items.find(i => 
             i.product.toString() === productId && 
-            i.size === size
+            i.size === size &&
+            i.color.colorName === colorName
         );
         
-        if (!item) throw new NotFoundError('Item not found in guest cart');
+        console.log('Found item for removal:', item);
+        
+        if (!item) {
+            console.log('Available items in cart:', cart.items.map(i => ({
+                productId: i.product.toString(),
+                size: i.size,
+                colorName: i.color.colorName
+            })));
+            throw new NotFoundError('Item not found in guest cart');
+        }
         
         return this._cartRepository.removeItemFromCartBySessionId(sessionId, item._id.toString());
     }
@@ -576,7 +689,7 @@ class CartService {
         
         // Merge logic: Combine items from both carts
         const mergedItems = new Map<string, any>();
-        const getItemKey = (item: any) => `${item.product.toString()}_${item.size || ''}`;
+        const getItemKey = (item: any) => `${item.product.toString()}_${item.color.colorName}_${item.size}`;
         
         // Add existing user cart items
         for (const item of finalUserCart.items) {
@@ -584,7 +697,9 @@ class CartService {
             mergedItems.set(key, {
                 product: item.product.toString(),
                 quantity: item.quantity,
-                size: item.size
+                size: item.size,
+                color: item.color,
+                selectedImage: item.selectedImage
             });
         }
         
@@ -597,8 +712,12 @@ class CartService {
                 const product = await productService.getProductById(guestItem.product.toString());
                 if (!product || !product.isActive) continue;
                 
+                // Check if color variant still exists
+                const colorVariant = product.colors.find((c: any) => c.colorName === guestItem.color.colorName);
+                if (!colorVariant) continue;
+
                 // Validate stock
-                const sizeStock = product.sizeStock.find(s => s.size === guestItem.size);
+                const sizeStock = colorVariant.sizeStock.find((s: any) => s.size === guestItem.size);
                 if (!sizeStock || sizeStock.stock === 0) continue;
                 
                 if (mergedItems.has(key)) {
@@ -618,7 +737,9 @@ class CartService {
                         mergedItems.set(key, {
                             product: guestItem.product.toString(),
                             quantity: maxQuantity,
-                            size: guestItem.size
+                            size: guestItem.size,
+                            color: guestItem.color,
+                            selectedImage: guestItem.selectedImage
                         });
                     }
                 }

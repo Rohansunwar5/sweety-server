@@ -53,79 +53,79 @@ export interface OrderSummary {
 class OrderService {
   constructor(private readonly _orderRepository: OrderRepository) {}
 
-  async createOrder(input: CreateOrderInput): Promise<OrderSummary> {
-    const { userId, shippingAddress, billingAddress, paymentMethod, notes } = input;
-    const cartDetails = await cartService.getCartWithDetails(userId);
-    if (!cartDetails.items.length) throw new BadRequestError('Cart is empty')
+  // async createOrder(input: CreateOrderInput): Promise<OrderSummary> {
+  //   const { userId, shippingAddress, billingAddress, paymentMethod, notes } = input;
+  //   const cartDetails = await cartService.getCartWithDetails(userId);
+  //   if (!cartDetails.items.length) throw new BadRequestError('Cart is empty')
 
-    await this.validateStockAvailability(cartDetails.items);
-    const orderNumber = await this.generateOrderNumber();
+  //   await this.validateStockAvailability(cartDetails.items);
+  //   const orderNumber = await this.generateOrderNumber();
 
-    // Totals
-    const subtotal = cartDetails.totals.subtotal;
-    const totalDiscountAmount = cartDetails.totals.discountAmount;
-    const shippingCharge = this.calculateShippingCharge(subtotal);
-    const taxAmount = this.calculateTax(subtotal - totalDiscountAmount + shippingCharge);
+  //   // Totals
+  //   const subtotal = cartDetails.totals.subtotal;
+  //   const totalDiscountAmount = cartDetails.totals.discountAmount;
+  //   const shippingCharge = this.calculateShippingCharge(subtotal);
+  //   const taxAmount = this.calculateTax(subtotal - totalDiscountAmount + shippingCharge);
 
-    const total = parseFloat((subtotal - totalDiscountAmount + shippingCharge + taxAmount).toFixed(2));
+  //   const total = parseFloat((subtotal - totalDiscountAmount + shippingCharge + taxAmount).toFixed(2));
     
-    // order items
-    const orderItems = cartDetails.items.map(item => ({
-      product: item.product._id,
-      productName: item.product.name,
-      productCode: '', 
-      productImage: item.product.images[0] || '',
-      quantity: item.quantity,
-      size: item.size,
-      priceAtPurchase: item.product.price,
-      itemTotal: item.itemTotal
-    }));
+  //   // order items
+  //   const orderItems = cartDetails.items.map(item => ({
+  //     product: item.product._id,
+  //     productName: item.product.name,
+  //     productCode: '', 
+  //     productImage: item.product.images[0] || '',
+  //     quantity: item.quantity,
+  //     size: item.size,
+  //     priceAtPurchase: item.product.price,
+  //     itemTotal: item.itemTotal
+  //   }));
 
-    for (const orderItem of orderItems) {
-      const product = await productService.getProductById(orderItem.product);
-      if (product) { orderItem.productCode = product.code }
-    }
+  //   for (const orderItem of orderItems) {
+  //     const product = await productService.getProductById(orderItem.product);
+  //     if (product) { orderItem.productCode = product.code }
+  //   }
 
-    const orderParams: CreateOrderParams = {
-      orderNumber,
-      user: userId,
-      items: orderItems,
-      shippingAddress,
-      billingAddress,
-      subtotal,
-      appliedCoupon: cartDetails.cart.appliedCoupon?.discountId ? {
-        code: cartDetails.cart.appliedCoupon.code,
-        discountId: String(cartDetails.cart.appliedCoupon.discountId),
-        discountAmount: cartDetails.cart.appliedCoupon.discountAmount
-      } : undefined,
-      appliedVoucher: cartDetails.cart.appliedVoucher?.discountId ? {
-        code: cartDetails.cart.appliedVoucher.code,
-        discountId: String(cartDetails.cart.appliedVoucher.discountId),
-        discountAmount: cartDetails.cart.appliedVoucher.discountAmount
-      } : undefined,
-      totalDiscountAmount,
-      shippingCharge,
-      taxAmount,
-      total,
-      paymentMethod,
-      notes
-    };
+  //   const orderParams: CreateOrderParams = {
+  //     orderNumber,
+  //     user: userId,
+  //     items: orderItems,
+  //     shippingAddress,
+  //     billingAddress,
+  //     subtotal,
+  //     appliedCoupon: cartDetails.cart.appliedCoupon?.discountId ? {
+  //       code: cartDetails.cart.appliedCoupon.code,
+  //       discountId: String(cartDetails.cart.appliedCoupon.discountId),
+  //       discountAmount: cartDetails.cart.appliedCoupon.discountAmount
+  //     } : undefined,
+  //     appliedVoucher: cartDetails.cart.appliedVoucher?.discountId ? {
+  //       code: cartDetails.cart.appliedVoucher.code,
+  //       discountId: String(cartDetails.cart.appliedVoucher.discountId),
+  //       discountAmount: cartDetails.cart.appliedVoucher.discountAmount
+  //     } : undefined,
+  //     totalDiscountAmount,
+  //     shippingCharge,
+  //     taxAmount,
+  //     total,
+  //     paymentMethod,
+  //     notes
+  //   };
     
-    const order = await this._orderRepository.createOrder(orderParams);
-    if (!order) throw new InternalServerError('Failed to create order')
+  //   const order = await this._orderRepository.createOrder(orderParams);
+  //   if (!order) throw new InternalServerError('Failed to create order')
       
-    await this.reserveStock(cartDetails.items);
+  //   await this.reserveStock(cartDetails.items);
 
-    await cartService.clearCartItems(userId);
+  //   await cartService.clearCartItems(userId);
 
-    return {
-      orderId: order._id,
-      orderNumber: order.orderNumber,
-      total: order.total,
-      itemCount: order.items.length,
-      status: order.status
-    };
-  }
+  //   return {
+  //     orderId: order._id,
+  //     orderNumber: order.orderNumber,
+  //     total: order.total,
+  //     itemCount: order.items.length,
+  //     status: order.status
+  //   };
+  // }
 
   async getOrderById(orderId: string) {
     const order = await this._orderRepository.getOrderById(orderId);
@@ -180,49 +180,49 @@ class OrderService {
     return updatedOrder;
   }
 
-  async cancelOrder(orderId: string, reason: string, userId?: string) {
-    const order = await this.getOrderById(orderId);
+  // async cancelOrder(orderId: string, reason: string, userId?: string) {
+  //   const order = await this.getOrderById(orderId);
     
-    if (userId && order.user.toString() !== userId) {
-      throw new BadRequestError('Order does not belong to user');
-    }
+  //   if (userId && order.user.toString() !== userId) {
+  //     throw new BadRequestError('Order does not belong to user');
+  //   }
 
-    if (!this.canCancelOrder(order.status)) {
-      throw new BadRequestError(`Cannot cancel order with status: ${order.status}`);
-    }
+  //   if (!this.canCancelOrder(order.status)) {
+  //     throw new BadRequestError(`Cannot cancel order with status: ${order.status}`);
+  //   }
 
-    const cancelledOrder = await this._orderRepository.cancelOrder(orderId, reason);
-    if (!cancelledOrder) {
-      throw new InternalServerError('Failed to cancel order');
-    }
+  //   const cancelledOrder = await this._orderRepository.cancelOrder(orderId, reason);
+  //   if (!cancelledOrder) {
+  //     throw new InternalServerError('Failed to cancel order');
+  //   }
 
-    // Restore stock
-    await this.restoreStock(order.items);
+  //   // Restore stock
+  //   await this.restoreStock(order.items);
 
-    return cancelledOrder;
-  }
+  //   return cancelledOrder;
+  // }
 
-  async returnOrder(orderId: string, reason: string, userId?: string) {
-    const order = await this.getOrderById(orderId);
+  // async returnOrder(orderId: string, reason: string, userId?: string) {
+  //   const order = await this.getOrderById(orderId);
     
-    if (userId && order.user.toString() !== userId) {
-      throw new BadRequestError('Order does not belong to user');
-    }
+  //   if (userId && order.user.toString() !== userId) {
+  //     throw new BadRequestError('Order does not belong to user');
+  //   }
 
-    if (order.status !== IOrderStatus.DELIVERED) {
-      throw new BadRequestError('Only delivered orders can be returned');
-    }
+  //   if (order.status !== IOrderStatus.DELIVERED) {
+  //     throw new BadRequestError('Only delivered orders can be returned');
+  //   }
 
-    const returnedOrder = await this._orderRepository.returnOrder(orderId, reason);
-    if (!returnedOrder) {
-      throw new InternalServerError('Failed to return order');
-    }
+  //   const returnedOrder = await this._orderRepository.returnOrder(orderId, reason);
+  //   if (!returnedOrder) {
+  //     throw new InternalServerError('Failed to return order');
+  //   }
 
-    // Restore stock
-    await this.restoreStock(order.items);
+  //   // Restore stock
+  //   await this.restoreStock(order.items);
 
-    return returnedOrder;
-  }
+  //   return returnedOrder;
+  // }
 
   async searchOrders(searchTerm: string, userId?: string, page: number = 1, limit: number = 10) {
     return this._orderRepository.searchOrders(searchTerm, userId, page, limit);
@@ -247,60 +247,60 @@ class OrderService {
     return Math.round(taxableAmount * 0.18);
   }
 
-  private async validateStockAvailability(cartItems: any[]) {
-    for (const item of cartItems) {
-      const product = await productService.getProductById(item.product._id);
-      if (!product) {
-        throw new NotFoundError(`Product not found: ${item.product.name}`);
-      }
+  // private async validateStockAvailability(cartItems: any[]) {
+  //   for (const item of cartItems) {
+  //     const product = await productService.getProductById(item.product._id);
+  //     if (!product) {
+  //       throw new NotFoundError(`Product not found: ${item.product.name}`);
+  //     }
 
-      if (item.size) {
-        const sizeStock = product.sizeStock.find(s => s.size === item.size);
-        if (!sizeStock || sizeStock.stock < item.quantity) {
-          throw new BadRequestError(
-            `Insufficient stock for ${item.product.name} in size ${item.size}`
-          );
-        }
-      }
-    }
-  }
+  //     if (item.size) {
+  //       const sizeStock = product.sizeStock.find(s => s.size === item.size);
+  //       if (!sizeStock || sizeStock.stock < item.quantity) {
+  //         throw new BadRequestError(
+  //           `Insufficient stock for ${item.product.name} in size ${item.size}`
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
 
-  private async reserveStock(cartItems: any[]) {
-    const orderItems = cartItems.map(item => ({
-        productId: item.product._id,
-        size: item.size,
-        quantity: item.quantity,
-        productName: item.product.name
-    }));
+  // private async reserveStock(cartItems: any[]) {
+  //   const orderItems = cartItems.map(item => ({
+  //       productId: item.product._id,
+  //       size: item.size,
+  //       quantity: item.quantity,
+  //       productName: item.product.name
+  //   }));
 
-    try {
-        await productService.reduceStockForOrder(orderItems);
-    } catch (error: any) {
-        throw new BadRequestError(`Failed to reserve stock: ${error.message}`);
-    }
-  }
+  //   try {
+  //       await productService.reduceStockForOrder(orderItems);
+  //   } catch (error: any) {
+  //       throw new BadRequestError(`Failed to reserve stock: ${error.message}`);
+  //   }
+  // }
 
-  private async restoreStock(orderItems: any[]) {
-    const stockItems = orderItems.map(item => ({
-        productId: item.product.toString(),
-        size: item.size,
-        quantity: item.quantity
-    }));
+  // private async restoreStock(orderItems: any[]) {
+  //   const stockItems = orderItems.map(item => ({
+  //       productId: item.product.toString(),
+  //       size: item.size,
+  //       quantity: item.quantity
+  //   }));
 
-    try {
-        // Use negative quantity to restore stock
-        for (const item of stockItems) {
-            await productService.updateProductStock({
-                productId: item.productId,
-                size: item.size,
-                quantity: item.quantity // Positive to add back
-            });
-        }
-    } catch (error) {
-        console.error('Failed to restore stock:', error);
-        // Log but don't throw - order cancellation/return should still succeed
-    }
-  }
+  //   try {
+  //       // Use negative quantity to restore stock
+  //       for (const item of stockItems) {
+  //           await productService.updateProductStock({
+  //               productId: item.productId,
+  //               size: item.size,
+  //               quantity: item.quantity // Positive to add back
+  //           });
+  //       }
+  //   } catch (error) {
+  //       console.error('Failed to restore stock:', error);
+  //       // Log but don't throw - order cancellation/return should still succeed
+  //   }
+  // }
 
   private validateStatusTransition(currentStatus: IOrderStatus, newStatus: IOrderStatus) {
     const validTransitions: Record<IOrderStatus, IOrderStatus[]> = {
