@@ -1,7 +1,6 @@
-import { isPublic } from "ip";
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-const wishlistItemSchema = new mongoose.Schema (
+const wishlistItemSchema = new mongoose.Schema(
     {
         product: {
             type: mongoose.Types.ObjectId,
@@ -23,7 +22,7 @@ const wishlistSchema = new mongoose.Schema (
             type: mongoose.Types.ObjectId,
             required: true,
         },
-        items: [wishlistItemSchema],
+        items: [ wishlistItemSchema ],
         isPublic: {
             type: Boolean,
             default: false,
@@ -31,7 +30,6 @@ const wishlistSchema = new mongoose.Schema (
         name: {
             type: String,
             default: "My Wishlist",
-            maxLength: 100,
         },
     }, { timestamps: true }
 )
@@ -45,7 +43,7 @@ export interface IWishlistItem {
     priceWhenAdded?: number;
 }
 
-export interface IWishlist extends mongoose.Document {
+export interface IWishlist extends mongoose.Schema {
     _id: string;
     user: mongoose.Types.ObjectId;
     items: IWishlistItem[];
@@ -56,4 +54,3 @@ export interface IWishlist extends mongoose.Document {
 }
 
 export default mongoose.model<IWishlist>('Wishlist', wishlistSchema);
-

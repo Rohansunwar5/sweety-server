@@ -35,6 +35,22 @@ const orderItemSchema = new mongoose.Schema({
   },
   size: {
     type: String,
+    required: true, 
+  },
+  color: {
+    colorName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    colorHex: {
+      type: String,
+      required: true,
+    }
+  },
+  selectedImage: {
+    type: String,
+    required: true,
   },
   priceAtPurchase: {
     type: Number,
@@ -209,6 +225,12 @@ const orderSchema = new mongoose.Schema(
 // Indexes for better query performance
 orderSchema.index({ user: 1, status: 1 });
 orderSchema.index({ user: 1, createdAt: -1 });
+orderSchema.index({ 'items.product': 1, 'items.color.colorName': 1, 'items.size': 1 });
+
+export interface IOrderItemColor {
+  colorName: string;
+  colorHex: string;
+}
 
 export interface IOrderItem {
   _id: string;
@@ -217,7 +239,9 @@ export interface IOrderItem {
   productCode: string;
   productImage: string;
   quantity: number;
-  size?: string;
+  size: string;
+  color: IOrderItemColor;
+  selectedImage: string;
   priceAtPurchase: number;
   itemTotal: number;
 }

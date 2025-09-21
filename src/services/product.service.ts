@@ -81,12 +81,8 @@ class ProductService {
             if (existingProduct) throw new BadRequestError('Product with this code already exists');
         }
 
-        // Handling image URLs could be complex depending on your UI design.
-        // Here, we assume images are handled externally or attached with colors.
-        // If files are provided, upload them and append URLs, but do not auto-assign to colors.
         let imageUrls: string[] = [];
         if (params.colors && params.colors.length > 0) {
-            // You might want to keep the colors as is, assuming images inside colors are set correctly
         } else {
             imageUrls = product.colors?.flatMap(c => c.images) || [];
         }
@@ -347,41 +343,143 @@ class ProductService {
         });
     }
 
-    async getProductRatings(productId: string, page: number = 1, limit: number = 10) {
-    const product = await this._productRepository.getProductById(productId);
-    if (!product) throw new NotFoundError("Product not found");
+    async updateProductStockWithColor(params: {
+    productId: string;
+    colorName: string;
+    size: string;
+    quantity: number; 
+    }) {
+        const { productId, colorName, size, quantity } = params;
 
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedRatings = product.ratings
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(startIndex, endIndex);
+        if (!productId || !colorName || !size || quantity === undefined) {
+            throw new BadRequestError("Missing required fields for stock update");
+        }
 
-    return {
-      ratings: paginatedRatings,
-      total: product.ratings.length,
-      page,
-      pages: Math.ceil(product.ratings.length / limit),
-      averageRating:
-        product.ratings.length > 0 ? product.ratings.reduce((sum, r) => sum + r.value, 0) / product.ratings.length : 0,
-    };
-  }
+        // Get current product to validate color and size exist
+        const product = await this._productRepository.getProductById(productId);
+        if (!product) {
+            throw new NotFoundError("Product not found");
+        }
 
-  private async validateCategorySubcategoryRelationship(categoryId: string, subcategoryId?: string) {
-    if (!subcategoryId) return;
+        // Find the color variant
+        const colorVariant = product.colors.find(c => c.colorName === colorName);
+        if (!colorVariant) {
+            throw new NotFoundError(`Color variant '${colorName}' not found for product`);
+        }
 
-    try {
-      const subcategory = await subcategoryService.getSubcategoryById(subcategoryId);
-      if (subcategory.category.toString() !== categoryId) {
-        throw new BadRequestError("Subcategory does not belong to the specified category");
-      }
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw new BadRequestError("Subcategory not found");
-      }
-      throw error;
+        // Find the size within the color variant
+        const sizeStock = colorVariant.sizeStock.find(s => s.size === size);
+        if (!sizeStock) {
+            throw new NotFoundError(`Size '${size}' not found for color '${colorName}'`);
+        }
+
+        // Calculate new stock level
+        const newStock = sizeStock.stock + quantity;
+        if (newStock < 0) {
+            throw new BadRequestError(
+            `Cannot reduce stock below 0. Current: ${sizeStock.stock}, Requested change: ${quantity}`
+            );
+        }
+
+        // Use the existing updateProductStock method
+        const updatedProduct = await this.updateProductStock({
+            productId,
+            colorName,
+            size,
+            quantity: newStock // Set absolute value, not relative change
+        });
+
+        return updatedProduct;
     }
-  }
+
+    async getProductRatings(productId: string, page: number = 1, limit: number = 10) {
+        const product = await this._productRepository.getProductById(productId);
+        if (!product) throw new NotFoundError("Product not found");
+
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const paginatedRatings = product.ratings
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(startIndex, endIndex);
+
+        return {
+        ratings: paginatedRatings,
+        total: product.ratings.length,
+        page,
+        pages: Math.ceil(product.ratings.length / limit),
+        averageRating:
+            product.ratings.length > 0 ? product.ratings.reduce((sum, r) => sum + r.value, 0) / product.ratings.length : 0,
+        };
+    }
+
+    private async validateCategorySubcategoryRelationship(categoryId: string, subcategoryId?: string) {
+        if (!subcategoryId) return;
+
+        try {
+        const subcategory = await subcategoryService.getSubcategoryById(subcategoryId);
+        if (subcategory.category.toString() !== categoryId) {
+            throw new BadRequestError("Subcategory does not belong to the specified category");
+        }
+        } catch (error) {
+        if (error instanceof NotFoundError) {
+            throw new BadRequestError("Subcategory not found");
+        }
+        throw error;
+        }
+    }
+
+    async reduceStockForOrderWithColor( orderItems: Array<{ productId: string; colorName: string; size: string; quantity: number; productName?: string }>) {
+        return this.reduceStockForOrder(orderItems);
+    }
+
+    async adjustProductStockWithColor(params: {
+    productId: string;
+    colorName: string;
+    size: string;
+    quantityChange: number; // Positive to add, negative to reduce
+    }) {
+        const { productId, colorName, size, quantityChange } = params;
+
+        if (!productId || !colorName || !size || quantityChange === undefined) {
+            throw new BadRequestError("Missing required fields for stock adjustment");
+        }
+
+        // Get current stock
+        const stockItems = [{
+            productId,
+            colorName,
+            size
+        }];
+
+        const currentStocks = await this._productRepository.getMultipleProductStocks(stockItems);
+        const currentStock = currentStocks[0];
+
+        if (currentStock.stock === 0 && quantityChange < 0) {
+            const exists = await this._productRepository.checkProductSizeExists(
+            productId,
+            colorName,
+            size
+            );
+            if (!exists) {
+            throw new NotFoundError("Product, color, or size combination not found");
+            }
+        }
+
+        const newStock = currentStock.stock + quantityChange;
+        if (newStock < 0) {
+            throw new BadRequestError(
+            `Cannot reduce stock below 0. Current: ${currentStock.stock}, Requested change: ${quantityChange}`
+            );
+        }
+
+        // Update with new absolute value
+        return this.updateProductStock({
+            productId,
+            colorName,
+            size,
+            quantity: newStock
+        });
+    }
 }
 
 export default new ProductService(new ProductRepository());

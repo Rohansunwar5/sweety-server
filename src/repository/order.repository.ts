@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import orderModel, { IOrder, IOrderStatus } from "../models/order.model";
 
-
 export interface GetAllOrdersParams {
     page: number;
     limit: number;
@@ -21,7 +20,12 @@ export interface CreateOrderParams {
     productCode: string;
     productImage: string;
     quantity: number;
-    size?: string;
+    size: string;
+    color: {
+      colorName: string;
+      colorHex: string;
+    };
+    selectedImage: string;
     priceAtPurchase: number;
     itemTotal: number;
   }>;
@@ -159,12 +163,8 @@ export class OrderRepository {
     );
     }
 
-    async getOrdersByDateRange(
-        startDate: Date,
-        endDate: Date,
-        page: number = 1,
-        limit: number = 10
-    ): Promise<{ orders: IOrder[]; total: number }> {
+    async getOrdersByDateRange( startDate: Date, endDate: Date, page: number = 1, limit: number = 10 ): Promise<{ orders: IOrder[]; total: number }> 
+    {
         const skip = (page - 1) * limit;
         const filter = {
         createdAt: {
@@ -186,32 +186,28 @@ export class OrderRepository {
     }
 
     async getOrderStats(userId?: string): Promise<any> {
-        const matchStage = userId ? { user: new mongoose.Types.ObjectId(userId) } : {};
-        
+        const matchStage = userId ? { user: new mongoose.Types.ObjectId(userId)} : {};
+
         return this._model.aggregate([
-        { $match: matchStage },
-        {
-            $group: {
-            _id: '$status',
-            count: { $sum: 1 },
-            totalAmount: { $sum: '$total' }
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 },
+                    totalAmount: { $sum: '$total' }
+                }
             }
-        }
-        ]);
+        ])
     }
 
-    async searchOrders(
-        searchTerm: string,
-        userId?: string,
-        page: number = 1,
-        limit: number = 10
-    ): Promise<{ orders: IOrder[]; total: number }> {
+    async searchOrders( searchTerm: string, userId?: string, page: number = 1, limit: number = 10 ): Promise<{ orders: IOrder[]; total: number }> {
         const skip = (page - 1) * limit;
         const filter: any = {
         $or: [
             { orderNumber: { $regex: searchTerm, $options: 'i' } },
             { 'items.productName': { $regex: searchTerm, $options: 'i' } },
-            { 'items.productCode': { $regex: searchTerm, $options: 'i' } }
+            { 'items.productCode': { $regex: searchTerm, $options: 'i' } },
+            { 'items.color.colorName': { $regex: searchTerm, $options: 'i' } }
         ]
         };
 
@@ -256,58 +252,123 @@ export class OrderRepository {
     }
 
     async getAllOrders(params: GetAllOrdersParams) {
-    const { 
-        page, 
-        limit, 
-        status, 
-        sortBy = '-createdAt',
-        startDate,
-        endDate,
-        searchTerm
-    } = params;
+        const { 
+            page, 
+            limit, 
+            status, 
+            sortBy = '-createdAt',
+            startDate,
+            endDate,
+            searchTerm
+        } = params;
 
-    const skip = (page - 1) * limit;
-    const filter: any = {};
+        const skip = (page - 1) * limit;
+        const filter: any = {};
 
-    // Status filter
-    if (status) {
-        filter.status = status;
+        if (status) {
+            filter.status = status;
+        }
+
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) filter.createdAt.$gte = startDate;
+            if (endDate) filter.createdAt.$lte = endDate;
+        }
+
+        if (searchTerm) {
+            filter.$or = [
+                { orderNumber: { $regex: searchTerm, $options: 'i' } },
+                { 'items.productName': { $regex: searchTerm, $options: 'i' } },
+                { 'items.productCode': { $regex: searchTerm, $options: 'i' } },
+                { 'items.color.colorName': { $regex: searchTerm, $options: 'i' } },
+                { 'shippingAddress.name': { $regex: searchTerm, $options: 'i' } }
+            ];
+        }
+
+        const [orders, total] = await Promise.all([
+            this._model
+                .find(filter)
+                .sort(sortBy)
+                .skip(skip)
+                .limit(limit)
+                .populate('user', 'name email'), 
+            this._model.countDocuments(filter)
+        ]);
+
+        return {
+            orders,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            limit
+        };
     }
 
-    // Date range filter
-    if (startDate || endDate) {
-        filter.createdAt = {};
-        if (startDate) filter.createdAt.$gte = startDate;
-        if (endDate) filter.createdAt.$lte = endDate;
+    async getOrdersByColor( colorName: string, page: number = 1, limit: number = 10 ): Promise<{ orders: IOrder[]; total: number }> {
+        const skip = (page - 1) * limit;
+        const filter = {
+            'items.color.colorName': { $regex: colorName, $options: 'i' }
+        };
+
+        const [orders, total] = await Promise.all([
+            this._model
+                .find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            this._model.countDocuments(filter)
+        ]);
+
+        return { orders, total };
     }
-
-    // Search filter
-    if (searchTerm) {
-        filter.$or = [
-            { orderNumber: { $regex: searchTerm, $options: 'i' } },
-            { 'items.productName': { $regex: searchTerm, $options: 'i' } },
-            { 'items.productCode': { $regex: searchTerm, $options: 'i' } },
-            { 'shippingAddress.name': { $regex: searchTerm, $options: 'i' } }
-        ];
-    }
-
-    const [orders, total] = await Promise.all([
-        this._model
-            .find(filter)
-            .sort(sortBy)
-            .skip(skip)
-            .limit(limit)
-            .populate('user', 'name email'), // Optional: include user details
-        this._model.countDocuments(filter)
-    ]);
-
-    return {
-        orders,
-        total,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        limit
-    };
-}
     
+    async getOrdersByProductAndColor( productId: string, colorName?: string, size?: string, page: number = 1, limit: number = 10 ): Promise<{ orders: IOrder[]; total: number }> {
+        const skip = (page - 1) * limit;
+        const filter: any = {
+            'items.product': productId
+        };
+
+        if (colorName) {
+            filter['items.color.colorName'] = colorName;
+        }
+
+        if (size) {
+            filter['items.size'] = size;
+        }
+
+        const [orders, total] = await Promise.all([
+            this._model
+                .find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            this._model.countDocuments(filter)
+        ]);
+
+        return { orders, total };
+    }
+
+    async getColorSalesStats(startDate?: Date, endDate?: Date): Promise<any> {
+        const matchStage: any = {};
+
+        if (startDate || endDate) {
+            matchStage.createdAt = {};
+            if (startDate) matchStage.createdAt.$gte = startDate;
+            if (endDate) matchStage.createdAt.$lte = endDate;
+        }
+
+        return this._model.aggregate([
+            { $match: matchStage },
+            { $unwind: '$items' },
+            {
+                $group: {
+                    _id: '$items.color.colorName',
+                    totalQuantity: { $sum: '$items.quantity' },
+                    totalRevenue: { $sum: '$items.itemTotal' },
+                    orderCount: { $sum: 1 }
+                }
+            },
+            { $sort: { totalQuantity: -1 } }
+        ]);
+    }
 }
