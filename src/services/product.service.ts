@@ -303,11 +303,11 @@ class ProductService {
         return { success: true, message: "Stock validation passed" };
     }
 
-    async getProductsBySubcategory(subcategoryId: string, params: SearchProductsParams) {
-        const { page, limit } = params;
+    // async getProductsBySubcategory(subcategoryId: string, params: SearchProductsParams) {
+    //     const { page, limit } = params;
 
-        return this._productRepository.getProductsBySubcategory(subcategoryId, { page, limit});
-    }
+    //     return this._productRepository.getProductsBySubcategory(subcategoryId, { page, limit});
+    // }
 
     async addProductRating(productId: string, userId: string, rating: number, review?: string) {
         const product = await this._productRepository.getProductById(productId);
@@ -431,6 +431,44 @@ class ProductService {
     async reduceStockForOrderWithColor( orderItems: Array<{ productId: string; colorName: string; size: string; quantity: number; productName?: string }>) {
         return this.reduceStockForOrder(orderItems);
     }
+
+    async getProductsBySubcategory(
+    subcategoryId: string, 
+    params: {
+        page?: number;
+        limit?: number;
+        sortBy?: string;
+        sortOrder?: 'asc' | 'desc';
+        minPrice?: number;
+        maxPrice?: number;
+        isActive?: boolean;
+    } = {}
+) {
+    // Verify subcategory exists
+    const subcategory = await subcategoryService.getSubcategoryById(subcategoryId);
+    if (!subcategory) {
+        throw new NotFoundError('Subcategory not found');
+    }
+
+    // Get products by subcategory
+    const result = await this._productRepository.getProductsBySubcategoryWithStock(subcategoryId, params);
+
+    return {
+        products: result.products,
+        pagination: {
+            total: result.total,
+            totalPages: result.totalPages,
+            currentPage: result.currentPage,
+            hasNextPage: result.currentPage < result.totalPages,
+            hasPrevPage: result.currentPage > 1
+        },
+        subcategory: {
+            _id: subcategory._id,
+            name: subcategory.name,
+            description: subcategory.description
+        }
+    };
+}
 
     async adjustProductStockWithColor(params: {
     productId: string;

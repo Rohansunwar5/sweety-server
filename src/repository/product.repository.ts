@@ -15,6 +15,17 @@ export interface CreateProductParams {
     tags?: string [];
 }
 
+interface IGetProductsBySubcategoryParams {
+    page?: number;
+    limit?: number;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    minPrice?: number;
+    maxPrice?: number;
+    isActive?: boolean;
+}
+
+
 export interface CreateProductWithImagesParams extends Omit<CreateProductParams, 'images'> {
     files?: Express.Multer.File[];
     existingImages?: string[];
@@ -290,6 +301,115 @@ export class ProductRepository {
         ]);
 
         return { products, total, page, pages: Math.ceil(total / limit) };
+    }
+
+    async getProductsBySubcategoryWithStock(
+        subcategoryId: string,
+        params: IGetProductsBySubcategoryParams = {}
+    ) {
+        const {
+            page = 1,
+            limit = 10,
+            sortBy = 'createdAt',
+            sortOrder = 'desc',
+            minPrice,
+            maxPrice,
+            isActive = true
+        } = params;
+
+        const skip = (page - 1) * limit;
+
+        // Convert string subcategoryId to ObjectId - THIS IS THE FIX
+        const subcategoryObjectId = new mongoose.Types.ObjectId(subcategoryId);
+
+        // Build filter with ObjectId
+        const filter: any = { subcategory: subcategoryObjectId };
+        
+        if (typeof isActive === 'boolean') {
+            filter.isActive = isActive;
+        }
+
+        if (minPrice !== undefined || maxPrice !== undefined) {
+            filter.price = {};
+            if (minPrice !== undefined) filter.price.$gte = minPrice;
+            if (maxPrice !== undefined) filter.price.$lte = maxPrice;
+        }
+
+        console.log('Filter being used:', JSON.stringify(filter, null, 2)); // Debug log
+
+        // Aggregation pipeline to calculate total stock per product
+        const pipeline = [
+            { $match: filter },
+            {
+                $addFields: {
+                    totalStock: {
+                        $sum: {
+                            $map: {
+                                input: "$colors",
+                                as: "color",
+                                in: {
+                                    $sum: {
+                                        $map: {
+                                            input: "$$color.sizeStock",
+                                            as: "sizeStock",
+                                            in: "$$sizeStock.stock"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    availableColors: { $size: "$colors" },
+                    availableSizes: {
+                        $size: {
+                            $reduce: {
+                                input: "$colors",
+                                initialValue: [],
+                                in: {
+                                    $setUnion: [
+                                        "$$value",
+                                        {
+                                            $map: {
+                                                input: "$$this.sizeStock",
+                                                as: "sizeStock",
+                                                in: "$$sizeStock.size"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            { $sort: { [sortBy]: (sortOrder === 'asc' ? 1 : -1) as 1 | -1 } },
+            {
+                $facet: {
+                    products: [
+                        { $skip: skip },
+                        { $limit: limit }
+                    ],
+                    totalCount: [
+                        { $count: "total" }
+                    ]
+                }
+            }
+        ];
+
+        console.log('Aggregation pipeline:', JSON.stringify(pipeline[0], null, 2)); // Debug log
+
+        const [result] = await this._model.aggregate(pipeline);
+        const products = result.products;
+        const total = result.totalCount[0]?.total || 0;
+
+        console.log('Query results - Total:', total, 'Products found:', products.length); // Debug log
+
+        return {
+            products,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page
+        };
     }
 
     async getLowStockProducts(threshold: number = 5) {

@@ -206,12 +206,26 @@ export const getAvailableSizes = async (req: Request, res: Response, next: NextF
 };
 
 export const getProductsBySubcategory = async (req: Request, res: Response, next: NextFunction) => {
-  const { subcategoryId } = req.params;
-  const { page = 1, limit = 10 } = req.query;
-  const response = await productService.getProductsBySubcategory(subcategoryId, {
-    page: Number(page),
-    limit: Number(limit),
-  });
+    const { subcategoryId } = req.params;
+    const { 
+        page = 1, 
+        limit = 10, 
+        sortBy = 'createdAt', 
+        sortOrder = 'desc',
+        minPrice,
+        maxPrice,
+        isActive = true
+    } = req.query;
 
-  next(response);
+    const response = await productService.getProductsBySubcategory(subcategoryId, {
+        page: Number(page),
+        limit: Number(limit),
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as 'asc' | 'desc',
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+        isActive: isActive === 'true'
+    });
+
+    next(response);
 };
