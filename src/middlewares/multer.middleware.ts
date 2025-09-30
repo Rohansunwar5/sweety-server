@@ -20,3 +20,13 @@ const upload = multer({
 });
 
 export const uploadProductImage = upload.single('image');
+
+const blogUpload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 15 * 1024 * 1024  
+  }
+});
+
+export const uploadBlogImages = blogUpload.single('blogImage');
