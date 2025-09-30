@@ -53,6 +53,48 @@ class CartService {
         };
     }
 
+    async getGuestCartWithDetails(sessionId: string) {
+        const cart = await this.getGuestCart(sessionId);
+        if (!cart.items.length) {
+            return { cart, items: [], totals: { subtotal: 0, discountAmount: 0, total: 0, itemCount: 0 } };
+        }
+
+        const productIds = cart.items.map(item => item.product.toString());
+        const products = await Promise.all(productIds.map(productId => productService.getProductById(productId)));
+        const productMap = products.reduce((acc: { [key: string]: any }, product) => {
+            if (product) acc[product._id.toString()] = product;
+            return acc;
+        }, {} as { [key: string]: any });
+        const itemsWithDetails = cart.items.map(item => {
+            const product = productMap[item.product.toString()];
+            if (!product) throw new NotFoundError(`Product not found for ID: ${item.product}`);
+            return {
+            _id: item._id,
+            product: {
+                _id: product._id,
+                name: product.name,
+                price: product.price,
+                images: product.images,
+            },
+            quantity: item.quantity,
+            size: item.size,
+            color: item.color,
+            selectedImage: item.selectedImage,
+            addedAt: item.addedAt,
+            itemTotal: product.price * item.quantity,
+            };
+        });
+
+        const totals = await this.calculateCartTotal(cart);
+
+        return {
+            cart: { _id: cart._id, appliedCoupon: cart.appliedCoupon, appliedVoucher: cart.appliedVoucher },
+            items: itemsWithDetails,
+            totals: { subtotal: totals.subtotal, discountAmount: totals.discountAmount, total: totals.total, itemCount: totals.items },
+        };
+    }
+
+
     async getCart(userId: string) {
         let cart = await this._cartRepository.getCartByUserId(userId);
         if (!cart) cart = await this._cartRepository.createCart(userId)

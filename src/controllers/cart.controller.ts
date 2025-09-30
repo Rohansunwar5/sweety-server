@@ -76,6 +76,12 @@ export const getCartWithDetails = async (req: Request, res: Response, next: Next
   next(response);
 };
 
+export const getGuestCartWithDetails = async (req: Request, res: Response, next: NextFunction) => {
+  const { sessionId } = req.params;
+  const response = await cartService.getGuestCartWithDetails(sessionId);
+  next(response);
+};
+
 export const getGuestCart = async (req: Request, res: Response, next: NextFunction) => {
   const { sessionId } = req.params;
   const response = await cartService.getGuestCart(sessionId);

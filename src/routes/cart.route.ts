@@ -10,6 +10,7 @@ import {
   getCart,
   getCartWithDetails,
   getGuestCart,
+  getGuestCartWithDetails,
   mergeGuestCartOnLogin,
   removeCartItemByProduct,
   removeDiscount,
@@ -35,12 +36,14 @@ cartRouter.delete('/', isLoggedIn, asyncHandler(deleteCart));
 cartRouter.post('/validate', isLoggedIn, asyncHandler(validateCart));
 
 // ============ GUEST CART ROUTES ============
+cartRouter.get('/guest/:sessionId/details', asyncHandler(getGuestCartWithDetails));
 cartRouter.get('/guest/:sessionId', asyncHandler(getGuestCart));
 cartRouter.post('/guest/:sessionId', asyncHandler(addItemToGuestCart));
 cartRouter.post('/guest/:sessionId/product/:productId', asyncHandler(addItemToGuestCartByProduct));
 cartRouter.put('/guest/:sessionId/item/:itemId', asyncHandler(updateGuestCartItemByProduct));
 cartRouter.delete('/guest/:sessionId/product/:productId', asyncHandler(removeGuestCartItemByProduct));
 cartRouter.post('/guest/validate', asyncHandler(validateCart));
+
 
 // Merge guest cart into user cart upon login
 
