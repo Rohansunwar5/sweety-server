@@ -483,4 +483,9 @@ export class ProductRepository {
             "colors.sizeStock.stock": 0
         }).select("name code colors");
     }
+
+    async deleteProduct(id: string) {
+        return this._model.findByIdAndDelete(id);
+    }
+
 }

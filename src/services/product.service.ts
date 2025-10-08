@@ -602,6 +602,13 @@ class ProductService {
             quantity: newStock
         });
     }
+
+    async deleteProduct(id: string) {
+        const deleted = await this._productRepository.deleteProduct(id);
+        if (!deleted) throw new NotFoundError('Product not found or could not be deleted');
+        return true;
+    }
+
 }
 
 export default new ProductService(new ProductRepository());

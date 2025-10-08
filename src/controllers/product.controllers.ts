@@ -295,18 +295,23 @@ export const addSubcategoryToProduct = async (req: Request, res: Response, next:
   const { productId } = req.params;
   const { subcategoryId } = req.body;
 
-  if (!subcategoryId) {
-    return next(new BadRequestError("subcategoryId is required"));
-  }
-
+  if (!subcategoryId) return next(new BadRequestError("subcategoryId is required"))
   const response = await productService.addSubcategoryToProduct(productId, subcategoryId);
+
   next(response);
 };
 
 // NEW: Remove subcategory from product
 export const removeSubcategoryFromProduct = async (req: Request, res: Response, next: NextFunction) => {
   const { productId, subcategoryId } = req.params;
-
   const response = await productService.removeSubcategoryFromProduct(productId, subcategoryId);
+
   next(response);
+};
+
+export const deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+  const deletedProduct = await productService.deleteProduct(id);
+
+  next(deletedProduct);
 };
