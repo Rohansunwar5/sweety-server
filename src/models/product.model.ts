@@ -1,20 +1,11 @@
 import mongoose from 'mongoose';
 
-export enum ISizes {
-    XS = 'xs',
-    S = 's',
-    M = 'm',
-    L = 'l',
-    XL = 'xl',
-    XXL = 'xxl',
-    XXXL = 'xxxl'
-}
-
 const sizeStockSchema = new mongoose.Schema({
     size: {
         type: String,
         required: true,
-        enum: ISizes
+        trim: true,
+        maxLength: 20 // Allows for flexible sizing like "37A", "XXL", "32", etc.
     },
     stock: {
         type: Number,
@@ -60,9 +51,9 @@ const productSchema = new mongoose.Schema(
             type: mongoose.Types.ObjectId,
             required: true,
         },
-        subcategory: {
+        subcategories: [{
             type: mongoose.Types.ObjectId,
-        },
+        }],
         colors: [productColorSchema],
         sizeChart: {
             type: String,
@@ -117,6 +108,7 @@ const productSchema = new mongoose.Schema(
 
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
 productSchema.index({ category: 1 });
+productSchema.index({ subcategories: 1 });
 productSchema.index({ price: 1 });
 
 export interface ISizeStock {
@@ -136,22 +128,22 @@ export interface IProduct extends mongoose.Schema {
     name: string;
     code: string;
     category: mongoose.Types.ObjectId;
-    subcategory?: mongoose.Types.ObjectId;
+    subcategories?: mongoose.Types.ObjectId[];
     colors: IProductColor[];
     sizeChart?: string;
     price: number;
     originalPrice?: number;
     description?: string;
-    images: string [];
+    images: string[];
     offer?: mongoose.Types.ObjectId;
-    ratings: Array< {
+    ratings: Array<{
         userId: mongoose.Types.ObjectId;
         value: number;
         review?: string;
         createdAt: Date;
     }>;
     isActive: boolean;
-    tags?: string [];
+    tags?: string[];
 }
 
 export default mongoose.model<IProduct>('Product', productSchema);

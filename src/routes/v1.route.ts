@@ -12,6 +12,7 @@ import adminRouter from './admin.route';
 import subcategoryRouter from './subcategory.route';
 import wishlistRouter from './wishlist.route';
 import blogRouter from './blog.route';
+import bannerRouter from './banner.route';
 
 const v1Router = Router();
 
@@ -28,5 +29,6 @@ v1Router.use('/payments', paymentRouter);
 v1Router.use('/discount', discountRouter);
 v1Router.use('/wishlist', wishlistRouter);
 v1Router.use('/blog', blogRouter);
+v1Router.use('/banner', bannerRouter);
 
 export default v1Router;

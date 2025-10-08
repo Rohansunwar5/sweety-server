@@ -5,14 +5,14 @@ export interface CreateProductParams {
     name: string;
     code: string;
     category: string;
-    subcategory?: string;
+    subcategories?: string[]; // Changed to array
     colors: IProductColor[];
     price: number;
     originalPrice?: number;
     description?: string;
     sizeChart?: string;
     isActive?: boolean;
-    tags?: string [];
+    tags?: string[];
 }
 
 interface IGetProductsBySubcategoryParams {
@@ -25,7 +25,6 @@ interface IGetProductsBySubcategoryParams {
     isActive?: boolean;
 }
 
-
 export interface CreateProductWithImagesParams extends Omit<CreateProductParams, 'images'> {
     files?: Express.Multer.File[];
     existingImages?: string[];
@@ -35,16 +34,16 @@ export interface UpdateProductParams {
     name?: string;
     code?: string;
     category?: string;
-    subcategory?: string;
-    colors: IProductColor [];
+    subcategories?: string[]; // Changed to array
+    colors?: IProductColor[];
     price?: number;
     originalPrice?: number;
     description?: string;
-    images?: string [];
+    images?: string[];
     sizeChart?: string;
     isActive?: boolean;
     tags?: string[];
-    ratings?: Array< {
+    ratings?: Array<{
         userId: mongoose.Types.ObjectId;
         value: number;
         review?: string;
@@ -61,7 +60,7 @@ export interface ListProductsParams {
     page: number;
     limit: number;
     sort?: string;
-    filters?: Record<string , any>;
+    filters?: Record<string, any>;
 }
 
 export interface UpdateStockParams {
@@ -120,7 +119,17 @@ export class ProductRepository {
         const query: Record<string, any> = { isActive: true };
 
         if (filters.category) query.category = filters.category;
-        if (filters.subcategory) query.subcategory = filters.subcategory;
+        
+        // Updated to handle array of subcategories
+        if (filters.subcategory) {
+            query.subcategories = filters.subcategory;
+        }
+        
+        // Support filtering by multiple subcategories
+        if (filters.subcategories && Array.isArray(filters.subcategories)) {
+            query.subcategories = { $in: filters.subcategories };
+        }
+        
         if (filters.minPrice || filters.maxPrice) {
             query.price = {};
             if (filters.minPrice) query.price.$gte = Number(filters.minPrice);
@@ -181,7 +190,6 @@ export class ProductRepository {
         };
     }
 
-
     async getAvailableSizes(productId: string, colorName: string): Promise<ISizeStock[]> {
         const product = await this._model.findOne(
             { _id: productId, "colors.colorName": colorName },
@@ -192,9 +200,15 @@ export class ProductRepository {
         return color?.sizeStock.filter(s => s.stock > 0) || [];
     }
     
-    async searchProducts( query: string, params: Omit<ListProductsParams, "filters"> & { categoryId?: string; subcategoryId?: string } ) 
-    {
-        const { page, limit, categoryId, subcategoryId } = params;
+    async searchProducts(
+        query: string, 
+        params: Omit<ListProductsParams, "filters"> & { 
+            categoryId?: string; 
+            subcategoryId?: string;
+            subcategoryIds?: string[]; // Added support for multiple subcategories
+        }
+    ) {
+        const { page, limit, categoryId, subcategoryId, subcategoryIds } = params;
 
         const searchQuery: any = {
             $text: { $search: query },
@@ -203,7 +217,13 @@ export class ProductRepository {
         };
 
         if (categoryId) searchQuery.category = categoryId;
-        if (subcategoryId) searchQuery.subcategory = subcategoryId;
+        
+        // Support single or multiple subcategories
+        if (subcategoryId) {
+            searchQuery.subcategories = subcategoryId;
+        } else if (subcategoryIds && subcategoryIds.length > 0) {
+            searchQuery.subcategories = { $in: subcategoryIds };
+        }
 
         const [products, total] = await Promise.all([
             this._model.find(searchQuery)
@@ -286,11 +306,12 @@ export class ProductRepository {
         return this._model.db.startSession();
     }
 
+    // Updated to handle multiple subcategories
     async getProductsBySubcategory(subcategoryId: string, params: Omit<ListProductsParams, "filters">) {
         const { page, limit } = params;
 
         const query = {
-            subcategory: subcategoryId,
+            subcategories: subcategoryId, // MongoDB will match if subcategoryId is in the array
             isActive: true,
             "colors.sizeStock.stock": { $gt: 0 }
         };
@@ -303,6 +324,7 @@ export class ProductRepository {
         return { products, total, page, pages: Math.ceil(total / limit) };
     }
 
+    // Updated to handle multiple subcategories
     async getProductsBySubcategoryWithStock(
         subcategoryId: string,
         params: IGetProductsBySubcategoryParams = {}
@@ -319,11 +341,11 @@ export class ProductRepository {
 
         const skip = (page - 1) * limit;
 
-        // Convert string subcategoryId to ObjectId - THIS IS THE FIX
+        // Convert string subcategoryId to ObjectId
         const subcategoryObjectId = new mongoose.Types.ObjectId(subcategoryId);
 
-        // Build filter with ObjectId
-        const filter: any = { subcategory: subcategoryObjectId };
+        // Build filter with ObjectId - updated to match array field
+        const filter: any = { subcategories: subcategoryObjectId };
         
         if (typeof isActive === 'boolean') {
             filter.isActive = isActive;
@@ -335,7 +357,7 @@ export class ProductRepository {
             if (maxPrice !== undefined) filter.price.$lte = maxPrice;
         }
 
-        console.log('Filter being used:', JSON.stringify(filter, null, 2)); // Debug log
+        console.log('Filter being used:', JSON.stringify(filter, null, 2));
 
         // Aggregation pipeline to calculate total stock per product
         const pipeline = [
@@ -396,13 +418,13 @@ export class ProductRepository {
             }
         ];
 
-        console.log('Aggregation pipeline:', JSON.stringify(pipeline[0], null, 2)); // Debug log
+        console.log('Aggregation pipeline:', JSON.stringify(pipeline[0], null, 2));
 
         const [result] = await this._model.aggregate(pipeline);
         const products = result.products;
         const total = result.totalCount[0]?.total || 0;
 
-        console.log('Query results - Total:', total, 'Products found:', products.length); // Debug log
+        console.log('Query results - Total:', total, 'Products found:', products.length);
 
         return {
             products,
@@ -410,6 +432,42 @@ export class ProductRepository {
             totalPages: Math.ceil(total / limit),
             currentPage: page
         };
+    }
+
+    async getProductsBySubcategories(
+        subcategoryIds: string[],
+        params: Omit<ListProductsParams, "filters">
+    ) {
+        const { page, limit } = params;
+
+        const query = {
+            subcategories: { $in: subcategoryIds },
+            isActive: true,
+            "colors.sizeStock.stock": { $gt: 0 }
+        };
+
+        const [products, total] = await Promise.all([
+            this._model.find(query).skip((page - 1) * limit).limit(limit),
+            this._model.countDocuments(query)
+        ]);
+
+        return { products, total, page, pages: Math.ceil(total / limit) };
+    }
+
+    async addSubcategoryToProduct(productId: string, subcategoryId: string) {
+        return this._model.findByIdAndUpdate(
+            productId,
+            { $addToSet: { subcategories: subcategoryId } },
+            { new: true, runValidators: true }
+        );
+    }
+
+    async removeSubcategoryFromProduct(productId: string, subcategoryId: string) {
+        return this._model.findByIdAndUpdate(
+            productId,
+            { $pull: { subcategories: subcategoryId } },
+            { new: true }
+        );
     }
 
     async getLowStockProducts(threshold: number = 5) {

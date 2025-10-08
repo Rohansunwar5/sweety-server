@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import productService from "../services/product.service";
 import { BadRequestError } from "../errors/bad-request.error";
-import { uploadToCloudinary } from "../utils/cloudinary.util";
 
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   const {
@@ -14,10 +13,10 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     description,
     sizeChart,
     tags,
-    subcategory,
+    subcategories, 
   } = req.body;
 
-  // Only parse if colors is a string; otherwise keep as is
+  // Parse colors if string
   let parsedColors;
   if (typeof colors === 'string') {
     try {
@@ -29,7 +28,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     parsedColors = colors;
   }
 
-  // Same for tags
+  // Parse tags if string
   let parsedTags;
   if (typeof tags === 'string') {
     try {
@@ -41,11 +40,28 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     parsedTags = tags;
   }
 
+  // Parse subcategories if string (can be array or single value)
+  let parsedSubcategories;
+  if (typeof subcategories === 'string') {
+    try {
+      parsedSubcategories = JSON.parse(subcategories);
+      // Ensure it's an array
+      if (!Array.isArray(parsedSubcategories)) {
+        parsedSubcategories = [parsedSubcategories];
+      }
+    } catch (err) {
+      return next(new BadRequestError("Invalid JSON format for subcategories"));
+    }
+  } else if (subcategories) {
+    // If it's already an array or single value
+    parsedSubcategories = Array.isArray(subcategories) ? subcategories : [subcategories];
+  }
+
   const response = await productService.createProduct({
     name,
     code,
     category,
-    subcategory,
+    subcategories: parsedSubcategories,
     colors: parsedColors,
     price: Number(price),
     originalPrice: Number(originalPrice),
@@ -57,15 +73,14 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
   next(response);
 };
 
-
 export const updateProduct = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const {
     name,
     code,
     category,
-    subcategory,
-    colors, // changed from sizeStock
+    subcategories, // Changed from subcategory to subcategories
+    colors,
     sizeChart,
     price,
     originalPrice,
@@ -74,7 +89,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     tags,
   } = req.body;
 
-  // Parse only if string, else keep as is (handles raw JSON & form data)
+  // Parse colors if string
   let parsedColors;
   if (typeof colors === 'string') {
     try {
@@ -86,6 +101,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     parsedColors = colors;
   }
 
+  // Parse tags if string
   let parsedTags;
   if (typeof tags === 'string') {
     try {
@@ -97,6 +113,24 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     parsedTags = tags;
   }
 
+  // Parse subcategories if string
+  let parsedSubcategories;
+  if (typeof subcategories === 'string') {
+    try {
+      parsedSubcategories = JSON.parse(subcategories);
+      // Ensure it's an array
+      if (parsedSubcategories && !Array.isArray(parsedSubcategories)) {
+        parsedSubcategories = [parsedSubcategories];
+      }
+    } catch (err) {
+      return next(new BadRequestError("Invalid JSON format for subcategories"));
+    }
+  } else if (subcategories !== undefined) {
+    // If it's already an array or single value
+    parsedSubcategories = Array.isArray(subcategories) ? subcategories : [subcategories];
+  }
+
+  // Parse isActive if string
   let parsedIsActive;
   if (typeof isActive === 'string') {
     try {
@@ -112,7 +146,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     name,
     code,
     category,
-    subcategory,
+    subcategories: parsedSubcategories,
     colors: parsedColors,
     sizeChart,
     price: price !== undefined ? Number(price) : undefined,
@@ -125,7 +159,6 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
   next(response);
 };
 
-
 export const uploadColorImage = async (req: Request, res: Response, next: NextFunction) => {
   if(!req.file) {
     return next(new BadRequestError('Image file is required'));
@@ -133,13 +166,11 @@ export const uploadColorImage = async (req: Request, res: Response, next: NextFu
 
   try {
     const imageUrls = await productService.handleImageUploads({ files: [req.file] });
-
     next(imageUrls);
   } catch (error) {
     next(error);
   }
 };
-
 
 export const updateProductStock = async (req: Request, res: Response, next: NextFunction) => {
   const { productId, colorName, size, quantity } = req.body;
@@ -149,14 +180,12 @@ export const updateProductStock = async (req: Request, res: Response, next: Next
   }
 
   const response = await productService.updateProductStock({ productId, colorName, size, quantity });
-
   next(response);
 };
 
 export const getProductById = async (req: Request, res: Response, next: NextFunction) => {
   const { id } = req.params;
   const response = await productService.getProductById(id);
-
   next(response);
 };
 
@@ -168,15 +197,16 @@ export const listProducts = async (req: Request, res: Response, next: NextFuncti
     sort: sort as string,
     filters,
   });
-
   next(response);
 };
 
 export const getProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
   const { categoryId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  const response = await productService.getProductsByCategory(categoryId, { page: Number(page), limit: Number(limit) });
-
+  const response = await productService.getProductsByCategory(categoryId, { 
+    page: Number(page), 
+    limit: Number(limit) 
+  });
   next(response);
 };
 
@@ -191,7 +221,6 @@ export const searchProducts = async (req: Request, res: Response, next: NextFunc
     page: Number(page),
     limit: Number(limit),
   });
-
   next(response);
 };
 
@@ -201,31 +230,83 @@ export const getAvailableSizes = async (req: Request, res: Response, next: NextF
   if (!colorName) return next(new BadRequestError("colorName parameter is required"));
 
   const response = await productService.getAvailableSizes(productId, colorName);
+  next(response);
+};
+
+// UPDATED: Still works with single subcategory
+export const getProductsBySubcategory = async (req: Request, res: Response, next: NextFunction) => {
+  const { subcategoryId } = req.params;
+  const { 
+    page = 1, 
+    limit = 10, 
+    sortBy = 'createdAt', 
+    sortOrder = 'desc',
+    minPrice,
+    maxPrice,
+    isActive = true
+  } = req.query;
+
+  const response = await productService.getProductsBySubcategory(subcategoryId, {
+    page: Number(page),
+    limit: Number(limit),
+    sortBy: sortBy as string,
+    sortOrder: sortOrder as 'asc' | 'desc',
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    isActive: isActive === 'true'
+  });
 
   next(response);
 };
 
-export const getProductsBySubcategory = async (req: Request, res: Response, next: NextFunction) => {
-    const { subcategoryId } = req.params;
-    const { 
-        page = 1, 
-        limit = 10, 
-        sortBy = 'createdAt', 
-        sortOrder = 'desc',
-        minPrice,
-        maxPrice,
-        isActive = true
-    } = req.query;
+// NEW: Get products by multiple subcategories
+export const getProductsBySubcategories = async (req: Request, res: Response, next: NextFunction) => {
+  const { subcategoryIds } = req.body; // Expecting array in body
 
-    const response = await productService.getProductsBySubcategory(subcategoryId, {
-        page: Number(page),
-        limit: Number(limit),
-        sortBy: sortBy as string,
-        sortOrder: sortOrder as 'asc' | 'desc',
-        minPrice: minPrice ? Number(minPrice) : undefined,
-        maxPrice: maxPrice ? Number(maxPrice) : undefined,
-        isActive: isActive === 'true'
-    });
+  if (!subcategoryIds || !Array.isArray(subcategoryIds) || subcategoryIds.length === 0) {
+    return next(new BadRequestError("subcategoryIds array is required"));
+  }
 
-    next(response);
+  const { 
+    page = 1, 
+    limit = 10, 
+    sortBy = 'createdAt', 
+    sortOrder = 'desc',
+    minPrice,
+    maxPrice,
+    isActive = true
+  } = req.query;
+
+  const response = await productService.getProductsBySubcategories(subcategoryIds, {
+    page: Number(page),
+    limit: Number(limit),
+    sortBy: sortBy as string,
+    sortOrder: sortOrder as 'asc' | 'desc',
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    isActive: isActive === 'true'
+  });
+
+  next(response);
+};
+
+// NEW: Add subcategory to product
+export const addSubcategoryToProduct = async (req: Request, res: Response, next: NextFunction) => {
+  const { productId } = req.params;
+  const { subcategoryId } = req.body;
+
+  if (!subcategoryId) {
+    return next(new BadRequestError("subcategoryId is required"));
+  }
+
+  const response = await productService.addSubcategoryToProduct(productId, subcategoryId);
+  next(response);
+};
+
+// NEW: Remove subcategory from product
+export const removeSubcategoryFromProduct = async (req: Request, res: Response, next: NextFunction) => {
+  const { productId, subcategoryId } = req.params;
+
+  const response = await productService.removeSubcategoryFromProduct(productId, subcategoryId);
+  next(response);
 };
