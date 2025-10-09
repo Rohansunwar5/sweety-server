@@ -5,12 +5,14 @@ import { BadRequestError } from "../errors/bad-request.error";
 export const createProduct = async (req: Request, res: Response, next: NextFunction) => {
   const {
     name,
+    subheading,
     code,
     category,
     colors,
     price,
     originalPrice,
     description,
+    specifications,
     sizeChart,
     tags,
     subcategories, 
@@ -57,8 +59,20 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     parsedSubcategories = Array.isArray(subcategories) ? subcategories : [subcategories];
   }
 
+  let parsedSpecifications;
+  if (typeof specifications === 'string') {
+    try {
+      parsedSpecifications = JSON.parse(specifications);
+    } catch (err) {
+      return next(new BadRequestError("Invalid JSON format for specifications"));
+    }
+  } else {
+    parsedSpecifications = specifications;
+  }
+
   const response = await productService.createProduct({
     name,
+    subheading,
     code,
     category,
     subcategories: parsedSubcategories,
@@ -66,6 +80,7 @@ export const createProduct = async (req: Request, res: Response, next: NextFunct
     price: Number(price),
     originalPrice: Number(originalPrice),
     description,
+    specifications,
     sizeChart,
     tags: parsedTags,
   });
@@ -77,14 +92,16 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
   const { id } = req.params;
   const {
     name,
+    subheading,
     code,
     category,
-    subcategories, // Changed from subcategory to subcategories
+    subcategories,
     colors,
     sizeChart,
     price,
     originalPrice,
     description,
+    specifications,
     isActive,
     tags,
   } = req.body;
@@ -142,8 +159,20 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     parsedIsActive = isActive;
   }
 
+  let parsedSpecifications;
+  if (typeof specifications === 'string') {
+    try {
+      parsedSpecifications = JSON.parse(specifications);
+    } catch (err) {
+      return next(new BadRequestError("Invalid JSON format for specifications"));
+    }
+  } else {
+    parsedSpecifications = specifications;
+  }
+
   const response = await productService.updateProduct(id, {
     name,
+    subheading,
     code,
     category,
     subcategories: parsedSubcategories,
@@ -152,6 +181,7 @@ export const updateProduct = async (req: Request, res: Response, next: NextFunct
     price: price !== undefined ? Number(price) : undefined,
     originalPrice: originalPrice !== undefined ? Number(originalPrice) : undefined,
     description,
+    specifications: parsedSpecifications,
     isActive: parsedIsActive,
     tags: parsedTags,
   });

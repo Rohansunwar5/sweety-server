@@ -15,12 +15,10 @@ class ProductService {
     constructor(private readonly _productRepository: ProductRepository) {}
 
     async createProduct(params: CreateProductWithImagesParams) {
-        // Check colors instead of sizeStock
         if (!params.colors || params.colors.length === 0)
             throw new BadRequestError("At least one color with size and stock must be provided");
         if (!params.code) throw new BadRequestError("Product code is required");
 
-        // Validate multiple subcategories if provided
         if (params.subcategories && params.subcategories.length > 0) {
             await this.validateCategorySubcategoriesRelationship(params.category, params.subcategories);
         }
@@ -30,6 +28,7 @@ class ProductService {
 
         const productParams: CreateProductParams = {
             name: params.name,
+            subheading: params.subheading,
             code: params.code,
             category: params.category,
             subcategories: params.subcategories,
@@ -37,6 +36,7 @@ class ProductService {
             price: params.price,
             originalPrice: params.originalPrice,
             description: params.description,
+            specifications: params.specifications,
             sizeChart: params.sizeChart,
             isActive: params.isActive ?? true,
             tags: params.tags,
@@ -70,7 +70,6 @@ class ProductService {
         const product = await this._productRepository.getProductById(id);
         if (!product) throw new NotFoundError('Product not found');
 
-        // Validate category and subcategories relationship
         if (params.category || params.subcategories) {
             const categoryId = params.category || product.category.toString();
             const subcategoryIds = params.subcategories || product.subcategories?.map(s => s.toString());
@@ -104,6 +103,7 @@ class ProductService {
 
         const updateParams: UpdateProductParams = {
             name: params.name,
+            subheading: params.subheading,
             code: params.code,
             category: params.category,
             subcategories: params.subcategories,
@@ -111,6 +111,7 @@ class ProductService {
             price: params.price,
             originalPrice: params.originalPrice,
             description: params.description,
+            specifications: params.specifications,
             sizeChart: params.sizeChart,
             isActive: params.isActive,
             tags: params.tags,

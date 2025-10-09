@@ -5,7 +5,7 @@ const sizeStockSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true,
-        maxLength: 20 // Allows for flexible sizing like "37A", "XXL", "32", etc.
+        maxLength: 20 
     },
     stock: {
         type: Number,
@@ -13,6 +13,24 @@ const sizeStockSchema = new mongoose.Schema({
         min: 0
     }
 });
+
+const specificationSchema = new mongoose.Schema({
+    label: {
+        type: String,
+        required: true,
+        maxLength: 100,
+    },
+    description: {
+        type: String,
+        required: true,
+        trim: true,
+        maxLength: 1000
+    },
+    order: {
+        type: Number,
+        default: 0
+    }
+})
 
 const productColorSchema = new mongoose.Schema({
     colorName: {
@@ -24,7 +42,7 @@ const productColorSchema = new mongoose.Schema({
     colorHex: {
         type: String,
         required: true,
-        match: /^#([0-9A-Fa-f]{6})$/, // Hex color validation
+        match: /^#([0-9A-Fa-f]{6})$/, 
     },
     images: [{
         type: String,
@@ -39,6 +57,11 @@ const productSchema = new mongoose.Schema(
             type: String,
             required: true,
             maxLength: 100,
+        },
+        subheading: {
+            type: String,
+            trim: true,
+            maxLength: 500
         },
         code: {
             type: String,
@@ -71,7 +94,8 @@ const productSchema = new mongoose.Schema(
             type: String,
             trim: true,
             maxLength: 2000
-        }, 
+        },
+        specifications: [specificationSchema], 
         offer: {
             type: mongoose.Types.ObjectId,
         },
@@ -123,9 +147,16 @@ export interface IProductColor {
     sizeStock: ISizeStock[];
 }
 
+export interface ISpecification {
+    label: string;
+    description: string;
+    order: number;
+}
+
 export interface IProduct extends mongoose.Schema {
     _id: string;
     name: string;
+    subheading?: string;
     code: string;
     category: mongoose.Types.ObjectId;
     subcategories?: mongoose.Types.ObjectId[];
@@ -134,6 +165,7 @@ export interface IProduct extends mongoose.Schema {
     price: number;
     originalPrice?: number;
     description?: string;
+    specifications?: ISpecification[];
     images: string[];
     offer?: mongoose.Types.ObjectId;
     ratings: Array<{

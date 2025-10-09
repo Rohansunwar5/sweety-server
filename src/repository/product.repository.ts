@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
-import productModel, { ISizeStock, IProductColor } from "../models/product.model";
+import productModel, { ISizeStock, IProductColor, ISpecification } from "../models/product.model";
 
 export interface CreateProductParams {
     name: string;
+    subheading?: string;
     code: string;
     category: string;
     subcategories?: string[]; // Changed to array
@@ -10,6 +11,7 @@ export interface CreateProductParams {
     price: number;
     originalPrice?: number;
     description?: string;
+    specifications?: ISpecification[];
     sizeChart?: string;
     isActive?: boolean;
     tags?: string[];
@@ -32,6 +34,7 @@ export interface CreateProductWithImagesParams extends Omit<CreateProductParams,
 
 export interface UpdateProductParams {
     name?: string;
+    subheading?: string;
     code?: string;
     category?: string;
     subcategories?: string[]; // Changed to array
@@ -39,6 +42,7 @@ export interface UpdateProductParams {
     price?: number;
     originalPrice?: number;
     description?: string;
+    specifications?: ISpecification[];
     images?: string[];
     sizeChart?: string;
     isActive?: boolean;
