@@ -185,13 +185,23 @@ export class DiscountRepository {
         currentPage: page,
         limit
     };
-}
-
-    async incrementUsage(code: string) {
+    }
+    async incrementUsage(code: string, userId: string) {
         return this._model.findOneAndUpdate(
             { code },
-            { $inc: { usedCount: 1 } },
+            { 
+                $inc: { usedCount: 1 },
+                $addToSet: { usedBy: userId }
+            },
             { new: true }
-        )
+        );
+    }
+
+    async hasUserUsedDiscount(code: string, userId: string): Promise<boolean> {
+        const discount = await this._model.findOne({ 
+            code,
+            usedBy: userId 
+        });
+        return discount !== null;
     }
 }

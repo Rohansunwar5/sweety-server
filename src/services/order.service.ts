@@ -5,6 +5,7 @@ import { CreateOrderParams, OrderRepository, UpdateOrderParams } from "../reposi
 import { IOrderStatus } from "../models/order.model";
 import cartService from "./cart.service";
 import productService from "./product.service";
+import discountService from "./discount.service";
 
 export interface GetAllOrdersOptions {
   page?: number;
@@ -64,21 +65,18 @@ class OrderService {
     const { userId, shippingAddress, billingAddress, paymentMethod, notes } = input;
     const cartDetails = await cartService.getCartWithDetails(userId);
     if (!cartDetails.items.length) throw new BadRequestError('Cart is empty')
-
     await this.validateStockAvailability(cartDetails.items);
     const orderNumber = await this.generateOrderNumber();
-
+    
     // Totals
     const subtotal = cartDetails.totals.subtotal;
     const totalDiscountAmount = cartDetails.totals.discountAmount;
     const shippingCharge = this.calculateShippingCharge(subtotal);
     const taxAmount = this.calculateTax(subtotal - totalDiscountAmount + shippingCharge);
-
     const total = parseFloat((subtotal - totalDiscountAmount + shippingCharge + taxAmount).toFixed(2));
     
     // order items with color and selectedImage support
     const orderItems = cartDetails.items.map(item => {
-      // Ensure product.colors exists, otherwise fallback to empty array
       const colors = (item.product as any).colors || [];
       const colorVariant = colors.find((c: any) => c.colorName === item.color.colorName);
       const productImage = colorVariant?.images?.[0] || item.selectedImage || '';
@@ -99,12 +97,28 @@ class OrderService {
         itemTotal: item.itemTotal
       };
     });
-
+    
     for (const orderItem of orderItems) {
       const product = await productService.getProductById(orderItem.product);
       if (product) { orderItem.productCode = product.code }
     }
 
+    // ===== ADD THIS SECTION: Mark discounts as used BEFORE creating order =====
+    if (cartDetails.cart.appliedCoupon?.code) {
+        await discountService.markDiscountAsUsed(
+            cartDetails.cart.appliedCoupon.code, 
+            userId
+        );
+    }
+
+    if (cartDetails.cart.appliedVoucher?.code) {
+        await discountService.markDiscountAsUsed(
+            cartDetails.cart.appliedVoucher.code, 
+            userId
+        );
+    }
+    // ===== END OF NEW SECTION =====
+    
     const orderParams: CreateOrderParams = {
       orderNumber,
       user: userId,
@@ -134,9 +148,8 @@ class OrderService {
     if (!order) throw new InternalServerError('Failed to create order')
       
     await this.reserveStock(cartDetails.items);
-
     await cartService.clearCartItems(userId);
-
+    
     return {
       orderId: order._id,
       orderNumber: order.orderNumber,
@@ -144,7 +157,7 @@ class OrderService {
       itemCount: order.items.length,
       status: order.status
     };
-  }
+}
 
   async getOrderById(orderId: string) {
     const order = await this._orderRepository.getOrderById(orderId);
@@ -313,11 +326,11 @@ class OrderService {
   }
 
   private calculateShippingCharge(subtotal: number): number {
-    return subtotal >= 500 ? 0 : 50; 
+    return 0; 
   }
 
   private calculateTax(taxableAmount: number): number {
-    return Math.round(taxableAmount * 0.18 * 100) / 100;
+    return 0;
   }
 
   private async validateStockAvailability(cartItems: any[]) {

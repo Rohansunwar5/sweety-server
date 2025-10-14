@@ -18,6 +18,7 @@ import {
   updateCartItemByProduct,
   updateGuestCartItemByProduct,
   validateCart,
+  validateDiscountForUser,
 } from '../controllers/cart.controller';
 import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 import { get } from 'http';
@@ -31,6 +32,7 @@ cartRouter.put('/item/:itemId', isLoggedIn, asyncHandler(updateCartItemByProduct
 cartRouter.delete('/product/:productId', isLoggedIn, asyncHandler(removeCartItemByProduct));
 cartRouter.post('/apply-discount', isLoggedIn, asyncHandler(applyDiscount));
 cartRouter.delete('/remove-discount', isLoggedIn, asyncHandler(removeDiscount));
+cartRouter.post('/validate-discount', isLoggedIn, asyncHandler(validateDiscountForUser));
 cartRouter.delete('/clear', isLoggedIn, asyncHandler(clearCartItems));
 cartRouter.delete('/', isLoggedIn, asyncHandler(deleteCart));
 cartRouter.post('/validate', isLoggedIn, asyncHandler(validateCart));

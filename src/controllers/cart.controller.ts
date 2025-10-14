@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import cartService from '../services/cart.service';
 import { ApplyDiscountInput, CartItemInput, RemoveDiscountInput, UpdateCartItemInput } from '../repository/cart.repository';
+import discountService from '../services/discount.service';
 
 export const getCart = async (req: Request, res: Response, next: NextFunction) => {
   const { _id: userId } = req.user;
@@ -47,6 +48,22 @@ export const applyDiscount = async (req: Request, res: Response, next: NextFunct
 
   next(response);
 };
+
+export const validateDiscountForUser = async (req: Request, res: Response, next: NextFunction) => {
+  const { _id: userId } = req.user;
+  const { code } = req.body;
+  
+  const hasUsed = await discountService.hasUserUsedDiscount(code, userId);
+  
+  next({
+    success: true,
+    data: {
+      canUse: !hasUsed,
+      message: hasUsed ? 'You have already used this discount code' : 'Discount is available'
+    }
+  });
+};
+
 
 export const removeDiscount = async (req: Request, res: Response, next: NextFunction) => {
   const { _id: userId } = req.user;

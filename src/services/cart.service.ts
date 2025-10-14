@@ -284,7 +284,11 @@ class CartService {
             return sum + (product.price * item.quantity);
         }, 0);
 
-        const result = await discountService.applyDiscount({ code, productIds, quantities, subtotal });
+        // Pass userId as the second parameter
+        const result = await discountService.applyDiscount(
+            { code, productIds, quantities, subtotal },
+            userId
+        );
 
         return this._cartRepository.applyDiscount(userId, type, result);
     }

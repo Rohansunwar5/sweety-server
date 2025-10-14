@@ -74,6 +74,9 @@ const discountSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+        usedBy: [{
+            type: mongoose.Types.ObjectId,
+        }],
         isActive: {
             type: Boolean,
             default: true,
@@ -103,6 +106,7 @@ export interface IDiscount extends mongoose.Schema {
   validUntil: Date;
   usageLimit?: number;
   usedCount: number;
+  usedBy: mongoose.Types.ObjectId[];
   isActive: boolean;
   createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
