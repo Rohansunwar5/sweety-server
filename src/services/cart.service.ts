@@ -261,7 +261,7 @@ class CartService {
     async applyDiscount(userId: string, { code, type }: ApplyDiscountInput) {
         const cart = await this.getCart(userId);
         if (!cart.items.length) throw new BadRequestError('Cart is empty');
-
+        
         const productIds = cart.items.map(item => item.product.toString());
         const products = await Promise.all( productIds.map(productId => productService.getProductById(productId)));
         const productMap = products.reduce((acc, product) => {
@@ -284,11 +284,13 @@ class CartService {
             return sum + (product.price * item.quantity);
         }, 0);
 
-        // Pass userId as the second parameter
-        const result = await discountService.applyDiscount(
-            { code, productIds, quantities, subtotal },
-            userId
-        );
+        // REMOVE userId - just validate and calculate
+        const result = await discountService.applyDiscount({ 
+            code, 
+            productIds, 
+            quantities, 
+            subtotal 
+        });
 
         return this._cartRepository.applyDiscount(userId, type, result);
     }

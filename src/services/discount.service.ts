@@ -126,59 +126,42 @@ class DiscountService {
     }
 
     // Update applyDiscount in discount.service.ts
-    async applyDiscount(params: ApplyDiscountParams, userId: string): Promise<DiscountCalculationResult> {
+    async applyDiscount(params: ApplyDiscountParams): Promise<DiscountCalculationResult> {
     const { code, productIds, quantities, subtotal } = params;
     
-    try {
-        const discount = await this.getDiscountByCode(code);
-        
-        // Check if user has already used this discount
-        const hasUsed = await this._discountRepository.hasUserUsedDiscount(code, userId);
-        if (hasUsed) {
-            throw new BadRequestError('You have already used this discount code');
-        }
-        
-        this.validateDiscount(discount, subtotal);
+    const discount = await this.getDiscountByCode(code);
+    this.validateDiscount(discount, subtotal);
 
-        let discountAmount = 0;
+    let discountAmount = 0;
 
-        switch(discount.discountType) {
-            case 'percentage':
-                discountAmount = this.calculatePercentageDiscount(discount, subtotal);
-                break;
-            case 'fixed':
-                discountAmount = this.calculateFixedDiscount(discount, subtotal);
-                break;
-            case 'buyXgetY':
-                discountAmount = await this.calculateBuyXGetYDiscount(discount, productIds, quantities);
-                break;
-            default:
-                throw new BadRequestError(`Unsupported discount type: ${discount.discountType}`);
-        }
-
-        // Only increment usage if discount amount > 0
-        if (discountAmount > 0) {
-            await this._discountRepository.incrementUsage(code, userId);
-        }
-
-        const discountedTotal = subtotal - discountAmount;
-        
-        return { 
-            discountAmount: Math.round(discountAmount * 100) / 100,
-            discountedTotal: Math.round(discountedTotal * 100) / 100,
-            appliedDiscount: {
-                code: discount.code,
-                type: discount.type,
-                discountType: discount.discountType,
-                value: discount.value,
-                discountId: discount._id,
-            }
-        };
-    } catch (error) {
-        throw error;
+    switch(discount.discountType) {
+        case 'percentage':
+            discountAmount = this.calculatePercentageDiscount(discount, subtotal);
+            break;
+        case 'fixed':
+            discountAmount = this.calculateFixedDiscount(discount, subtotal);
+            break;
+        case 'buyXgetY':
+            discountAmount = await this.calculateBuyXGetYDiscount(discount, productIds, quantities);
+            break;
+        default:
+            throw new BadRequestError(`Unsupported discount type: ${discount.discountType}`);
     }
-}
 
+    const discountedTotal = subtotal - discountAmount;
+    
+    return { 
+        discountAmount: Math.round(discountAmount * 100) / 100,
+        discountedTotal: Math.round(discountedTotal * 100) / 100,
+        appliedDiscount: {
+            code: discount.code,
+            type: discount.type,
+            discountType: discount.discountType,
+            value: discount.value,
+            discountId: discount._id,
+        }
+    };
+}
 
     private validateDiscount(discount: any, subtotal: number) {
         const now = new Date();
