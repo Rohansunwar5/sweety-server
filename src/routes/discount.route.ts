@@ -4,14 +4,12 @@ import {
   createDiscount,
   updateDiscount,
   getDiscountByCode,
-  applyDiscountToCart,
   getAllDiscounts,
   getActiveDiscounts,
   getDiscountStats,
   getExpiredDiscounts,
   deleteDiscount
 } from '../controllers/discount.controller';
-import isLoggedIn from '../middlewares/isLoggedIn.middleware';
 import isAdminLoggedIn from '../middlewares/isAdminLoggedIn.middleware';
 
 const discountRouter = Router();
@@ -27,7 +25,7 @@ discountRouter.get('/:id/stats', isAdminLoggedIn, asyncHandler(getDiscountStats)
 // Public/User routes
 discountRouter.get('/active', asyncHandler(getActiveDiscounts));
 discountRouter.get('/code/:code', asyncHandler(getDiscountByCode));
-discountRouter.post('/apply', isLoggedIn, asyncHandler(applyDiscountToCart));
+// discountRouter.post('/apply', isLoggedIn, asyncHandler(applyDiscountToCart));
 
 
 export default discountRouter;

@@ -25,22 +25,22 @@ export const getDiscountByCode = async (req: Request, res: Response, next: NextF
   next(response);
 };
 
-export const applyDiscountToCart = async (req: Request, res: Response, next: NextFunction) => {
-  const { code, products, subtotal } = req.body;
+// export const applyDiscountToCart = async (req: Request, res: Response, next: NextFunction) => {
+//   const { code, products, subtotal } = req.body;
   
-  const params: ApplyDiscountParams = {
-    code,
-    productIds: products.map((p: any) => p.productId),
-    quantities: products.reduce((acc: Record<string, number>, p: any) => {
-      acc[p.productId] = p.quantity;
-      return acc;
-    }, {}),
-    subtotal
-  };
+//   const params: ApplyDiscountParams = {
+//     code,
+//     productIds: products.map((p: any) => p.productId),
+//     quantities: products.reduce((acc: Record<string, number>, p: any) => {
+//       acc[p.productId] = p.quantity;
+//       return acc;
+//     }, {}),
+//     subtotal
+//   };
 
-  const response = await discountService.applyDiscount(params);
-  next(response);
-};
+//   const response = await discountService.applyDiscount(params);
+//   next(response);
+// };
 
 export const getAllDiscounts = async (req: Request, res: Response, next: NextFunction) => {
   const page = parseInt(req.query.page as string) || 1;
