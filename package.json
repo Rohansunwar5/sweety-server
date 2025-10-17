@@ -1,14 +1,14 @@
 {
-  "name": "wp-node-js-ts-template",
+  "name": "sweety-server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
     "dev": "ts-node-dev --files --respawn src/index.ts",
-    "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi",
-    "clean": "rimraf dist/",
-    "build": "tsc && cp -r src/templates dist/templates",
+    "prepare": "husky install",
+    "clean": "rimraf dist",
+    "build": "rimraf dist && tsc && cp -r src/templates dist/",
     "lint:fix": "eslint --fix --ext .ts ."
   },
   "keywords": [],
